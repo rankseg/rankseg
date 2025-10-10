@@ -207,8 +207,11 @@ def app_action_set(pb_mean, pb_var, pb_m3, device, dim, tol=1e-4):
 def PB_RNA(pb_mean, pb_var, pb_m3, device, up, low=0, top=None):
     candidate = torch.arange(low-1, up, device=device)
     norm_rv = torch.distributions.normal.Normal(0,1)
+    ## x = (k + 1/2 - mu) / sqrt(var)
     candidate_val = (candidate + 0.5 - pb_mean) / torch.sqrt(pb_var)
 
+    ## refined normal approximation
+    ## G(x) = Phi(x) + gamma (1 - x^2) phi(x) / 6 
     cdf_tmp = norm_rv.cdf(candidate_val) + pb_m3*(1 - candidate_val**2)*torch.exp(norm_rv.log_prob(candidate_val)) / 6 / pb_var**(3/2)
     pmf_tmp = cdf_tmp[1:] - cdf_tmp[:-1]
 

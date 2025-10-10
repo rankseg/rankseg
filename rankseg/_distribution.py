@@ -20,7 +20,7 @@ class RefinedNorm(Distribution):
         self.skew = skew
         batch_shape = self.skew.shape
         super(RefinedNorm, self).__init__(batch_shape=batch_shape, validate_args=validate_args)
-    
+
     def cdf(self, x):
         norm = Normal(0, 1)
         prob = norm.cdf(x) + self.skew*(1 - x**2)*norm.log_prob(x).exp()/6
