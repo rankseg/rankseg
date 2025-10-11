@@ -1,8 +1,10 @@
 # Author: Ben Dai <bendai@cuhk.edu.hk>
-
+from typing import Optional, Union
+from torch.types import _Number, _size
 import numpy as np
 import scipy
 import torch
+from torch import Tensor
 import torch.nn.functional as F
 from torch.distributions import Distribution, constraints
 from torch.distributions.normal import Normal
@@ -10,26 +12,70 @@ from torch.distributions.utils import broadcast_all
 
 ## example: https://pytorch-forecasting.readthedocs.io/en/v0.8.3/_modules/torch/distributions/negative_binomial.html
 
-class RefinedNorm(Distribution):
-    """Refined Normal distribution to approximate Poisson binomial distribution."""
-    arg_constraints = {'skew': constraints.real}
+class RefinedNormal(Distribution):
+    r"""
+    Refined Normal distribution to approximate Poisson binomial distribution.
+    
+    The CDF is defined as:
+    
+    .. math::
+        F(k; skew) = G( (k + 0.5 - loc) / scale ); \quad G(x) = \Phi(x) + skew * (1 - x^2) * \phi(x) / 6
+    
+    where:
+    - \Phi(x) is the standard normal CDF
+    - \phi(x) is the standard normal PDF
+    - skew is the skewness parameter
+    
+    The PDF is defined as:
+
+    Args:
+        skew: Skewness parameter controlling the third moment correction term.
+        validate_args: Whether to validate the arguments.
+    """
+    arg_constraints = {"loc": constraints.real, "scale": constraints.positive, "skew": constraints.real}
     support = constraints.real
     has_rsample = False
     
-    def __init__(self, skew, validate_args=None):
-        self.skew = skew
-        batch_shape = self.skew.shape
-        super(RefinedNorm, self).__init__(batch_shape=batch_shape, validate_args=validate_args)
+    def __init__(
+        self,
+        loc: Union[Tensor, float],
+        scale: Union[Tensor, float],
+        skew: Union[Tensor, float],
+        validate_args: Optional[bool] = None,
+    ):
+        self.loc, self.scale, self.skew = broadcast_all(loc, scale, skew)
+        if isinstance(loc, _Number) and isinstance(scale, _Number):
+            batch_shape = torch.Size()
+        else:
+            batch_shape = self.loc.size()
+        super().__init__(batch_shape=batch_shape, validate_args=validate_args)
 
-    def cdf(self, x):
+    def expand(self, batch_shape, _instance=None):
+        new = self._get_checked_instance(RefinedNormal, _instance)
+        batch_shape = torch.Size(batch_shape)
+        new.loc = self.loc.expand(batch_shape)
+        new.scale = self.scale.expand(batch_shape)
+        new.skew = self.skew.expand(batch_shape)
+        super(RefinedNormal, new).__init__(batch_shape, validate_args=False)
+        new._validate_args = self._validate_args
+        return new
+
+    def cdf(self, value):
+        if self._validate_args:
+            self._validate_sample(value)
+        x = (value + 0.5 - self.loc) / self.scale
+        ## to be optimized: directly compute the CDF without define Normal class
         norm = Normal(0, 1)
         prob = norm.cdf(x) + self.skew*(1 - x**2)*norm.log_prob(x).exp()/6
-        return np.clip(prob, 0, 1)
+        return torch.clip(prob, min=0.0, max=1.0)
 
-    def pdf(self, x):
+    def pdf(self, value):
+        x = (value + 0.5 - self.loc) / self.scale
+        ## to be optimized: directly compute the PDF without define Normal class
         norm = Normal(0, 1)
         pdf_value = norm.log_prob(x).exp()
-        return pdf_value + self.skew/6*pdf_value*(3*x - x**3)
+        g_value = pdf_value + self.skew/6*pdf_value*(x**3 - 3*x)
+        return torch.clip(g_value / self.scale, min=0.0)
 
     def log_prob(self, x):
         return torch.log(self.pdf(x))
@@ -72,11 +118,6 @@ class RefinedNorm(Distribution):
                 break
             x = x_new
         return x
-
-## test
-refined_norm = RefinedNorm(torch.tensor([1,2,3]))
-print(refined_norm.cdf(torch.tensor([.1,.2,-.3])))
-print(refined_norm.icdf(torch.tensor([.1,.2,.3])))
 
 
 class RNA_BP(object):
