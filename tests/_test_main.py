@@ -40,10 +40,10 @@ RNPB_rv = RefinedNormalPB(dim=dim, loc=pb_mean, scale=torch.sqrt(pb_var), skew=p
 ## truncate the evaluation interval [lq, uq] such that P(lq <= X <= uq) = 1 - p
 lq, uq = RNPB_rv.interval(1e-4)
 max_CI = torch.max(uq - lq)
-supp = torch.arange(max_CI) + lq
+supp = torch.arange(max_CI) + lq.unsqueeze(-1)
 # compute the PMF of the evaluation interval
 pmf_supp = RNPB_rv.pdf(supp)
-pmf_supp = pmf_supp / torch.sum(pmf_supp, axis=1, keepdim=True)
+pmf_supp = pmf_supp / torch.sum(pmf_supp, axis=-1, keepdim=True)
 
 low_tmp, up_tmp = lq[0:1,0], uq[0:1,0]+up_tau[0:1,0]-1
 pmf_tmp = pmf_supp[0,0]

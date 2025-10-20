@@ -10,6 +10,7 @@ from torch.distributions import Distribution, constraints
 from torch.distributions.normal import Normal
 from torch.distributions.utils import broadcast_all
 
+
 ## example: https://pytorch-forecasting.readthedocs.io/en/v0.8.3/_modules/torch/distributions/negative_binomial.html
 
 class RefinedNormalPB(Distribution):
@@ -63,21 +64,47 @@ class RefinedNormalPB(Distribution):
         return new
 
     def cdf(self, value):
+        # Handle broadcasting when value has extra dimensions
+        # e.g., value: (batch, class, d) vs loc/scale/skew: (batch, class)
+        loc = self.loc
+        scale = self.scale
+        skew = self.skew
+        
+        # Add dimensions to match value's shape for broadcasting
+        while loc.ndim < value.ndim:
+            loc = loc.unsqueeze(-1)
+            scale = scale.unsqueeze(-1)
+            skew = skew.unsqueeze(-1)
+
         if self._validate_args:
             self._validate_sample(value)
-        x = (value + 0.5 - self.loc) / self.scale
+        
+        x = (value + 0.5 - loc) / scale
+        
         ## to be optimized: directly compute the CDF without define Normal class
         norm = Normal(0, 1)
-        prob = norm.cdf(x) + self.skew*(1 - x**2)*norm.log_prob(x).exp()/6
+        prob = norm.cdf(x) + skew*(1 - x**2)*norm.log_prob(x).exp()/6
         return torch.clip(prob, min=0.0, max=1.0)
 
     def pdf(self, value):
-        x = (value + 0.5 - self.loc) / self.scale
+        # Handle broadcasting when value has extra dimensions
+        # e.g., value: (batch, class, d) vs loc/scale/skew: (batch, class)
+        loc = self.loc
+        scale = self.scale
+        skew = self.skew
+        
+        # Add dimensions to match value's shape for broadcasting
+        while loc.ndim < value.ndim:
+            loc = loc.unsqueeze(-1)
+            scale = scale.unsqueeze(-1)
+            skew = skew.unsqueeze(-1)
+        
+        x = (value + 0.5 - loc) / scale
         ## to be optimized: directly compute the PDF without define Normal class
         norm = Normal(0, 1)
         pdf_value = norm.log_prob(x).exp()
-        g_value = pdf_value + self.skew/6*pdf_value*(x**3 - 3*x)
-        return torch.clip(g_value / self.scale, min=0.0)
+        g_value = pdf_value + skew/6*pdf_value*(x**3 - 3*x)
+        return torch.clip(g_value / scale, min=0.0)
 
     def log_prob(self, x):
         return torch.log(self.pdf(x))
