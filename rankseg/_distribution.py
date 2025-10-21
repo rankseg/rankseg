@@ -76,8 +76,8 @@ class RefinedNormalPB(Distribution):
             scale = scale.unsqueeze(-1)
             skew = skew.unsqueeze(-1)
 
-        if self._validate_args:
-            self._validate_sample(value)
+        # if self._validate_args:
+        #     self._validate_sample(value)
         
         x = (value + 0.5 - loc) / scale
         
@@ -106,8 +106,13 @@ class RefinedNormalPB(Distribution):
         g_value = pdf_value + skew/6*pdf_value*(x**3 - 3*x)
         return torch.clip(g_value / scale, min=0.0)
 
-    def log_prob(self, x):
-        return torch.log(self.pdf(x))
+    def pmf(self, value):
+        # P(X = value) = F(value) - F(value-1)
+        pmf_tmp = self.cdf(value) - self.cdf(value-1)
+        return torch.clip(pmf_tmp, min=0.0, max=1.0)
+
+    # def log_prob(self, x):
+    #     return torch.log(self.pdf(x))
 
     def icdf(self, p, max_iter=1000, tol=1e-6):
         ## To be optimized: Brent’s method is better for root finding.
@@ -203,79 +208,6 @@ class RefinedNormal(scipy.stats.rv_continuous):
         prob = scipy.stats.norm.cdf(x) + skew*(1 - x**2)*scipy.stats.norm.pdf(x)/6
         return np.clip(prob, 0, 1)
     
-    def _pdf(self, x, skew):
-        return scipy.stats.norm.pdf(x) + skew/6*scipy.stats.norm.pdf(x)*(3*x - x**3)
-
-def app_action_set(pb_mean, pb_var, pb_m3, device, dim, tol=1e-4):
-    """Compute approximate action set bounds for Poisson binomial distribution.
-    
-    Uses the refined normal approximation to efficiently determine the range of
-    likely values for a Poisson binomial distribution, avoiding full computation
-    of all probability mass values.
-    
-    Parameters
-    ----------
-    pb_mean : torch.Tensor
-        Mean of the Poisson binomial distribution
-    pb_var : torch.Tensor
-        Variance of the Poisson binomial distribution
-    pb_m3 : torch.Tensor
-        Third moment of the Poisson binomial distribution
-    device : torch.device
-        Device to place output tensors on
-    dim : int
-        Maximum dimension/upper bound for the action set
-    tol : float, optional
-        Tolerance for quantile computation (default: 1e-4)
-        
-    Returns
-    -------
-    tuple[torch.Tensor, torch.Tensor]
-        Lower and upper bounds as integer tensors
-    """
-    refined_norm = RN_rv()
-
-    # Compute skewness with numerical stability
-    skew = (pb_m3 / pb_var**(3/2)).cpu() + 1e-5
-
-    low_quantile = torch.tensor(refined_norm.ppf(tol, skew=skew), device=device)
-    up_quantile = torch.tensor(refined_norm.ppf(1-tol, skew=skew), device=device)
-    
-    # Compute bounds with proper broadcasting
-    lower = torch.maximum(torch.floor(torch.sqrt(pb_var)*low_quantile + pb_mean) - 1, torch.tensor(0))
-    upper = torch.minimum(torch.ceil(torch.sqrt(pb_var)*up_quantile + pb_mean), torch.tensor(dim))
-    return lower.type(torch.int), upper.type(torch.int)
-
-def PB_RNA(pb_mean, pb_var, pb_m3, device, up, low=0):
-    """Compute the probability mass function of the Poisson binomial distribution using the refined normal approximation.
-    
-    Parameters
-    ----------
-    pb_mean : torch.Tensor
-        Mean of the Poisson binomial distribution
-    pb_var : torch.Tensor
-        Variance of the Poisson binomial distribution
-    pb_m3 : torch.Tensor
-        Third moment of the Poisson binomial distribution
-    device : torch.device
-        Device to place output tensors on
-    up : int
-        Upper bound for the action set
-    low : int, optional
-        Lower bound for the action set (default: 0)
-    
-    Returns
-    -------
-    torch.Tensor
-        Probability mass function of the Poisson binomial distribution
-    """
-    skew = (pb_m3 / pb_var**(3/2)).to(device)
-
-    pb_range = torch.arange(low-1, up, device=device)
-    pb_na_score = (pb_range + 0.5 - pb_mean) / torch.sqrt(pb_var)
-    
-    pb_cdf = RN_rv().cdf(pb_na_score, skew=skew)
-    pb_pmf = pb_cdf[1:] - pb_cdf[:-1]
-
-    return torch.clamp(pb_pmf, 0.0, 1.0)
+    # def _pdf(self, x, skew):
+    #     return scipy.stats.norm.pdf(x) + skew/6*scipy.stats.norm.pdf(x)*(3*x - x**3)
 

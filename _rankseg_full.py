@@ -111,7 +111,6 @@ def rank_dice(output, device, app=2, smooth=0.,
                 tau_rd[b,k] = opt_tau
                 cutpoint_rd[b,k] = sorted_prob[b,k,opt_tau]
                 print('Sample-%d; Class-%d: up_tau <= low_class, set tau_rd = %d' %(b, k, opt_tau))
-                print('up_tau: %d; low_class: %d' %(up_tau[b,k], low_class[b,k]))
                 continue
             if app_tmp > 1:
                 pmf_tmp = PB_RNA(pb_mean[b,k],
@@ -189,7 +188,7 @@ def rank_dice(output, device, app=2, smooth=0.,
 
 def app_action_set(pb_mean, pb_var, pb_m3, device, dim, tol=1e-4):
     refined_normal = RN_rv()
-    skew = (pb_m3 / pb_var**(3/2)).cpu() + 1e-5
+    skew = (pb_m3 / pb_var**(3/2)).cpu()
     low_quantile = torch.tensor(refined_normal.ppf(tol, skew=skew), device=device)
     up_quantile = torch.tensor(refined_normal.ppf(1-tol, skew=skew), device=device)
     lower = torch.maximum(torch.floor(torch.sqrt(pb_var)*low_quantile + pb_mean) - 1, torch.tensor(0))

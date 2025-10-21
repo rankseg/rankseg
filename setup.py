@@ -9,7 +9,7 @@ setup(
     author="Ben Dai",
     author_email="bendai@cuhk.edu.hk",
     url="https://github.com/user/project",
-    install_requires=["lightning", "hydra-core"],
+    install_requires=["torch", "hydra-core"],
     packages=find_packages(),
     # use this to customize global commands available in the terminal after installing the package
     entry_points={
