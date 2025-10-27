@@ -210,3 +210,115 @@ def rankdice_batch(probs,
                 prob_cutoff[b,k] = sorted_prob[b,k,opt_tau]
     
     return preds.reshape(batch_size, num_class, width, height), prob_cutoff
+
+
+def rankseg_rma(
+        prob: torch.Tensor,
+        opt_metric: str="dice",
+        allow_overlap: bool=False,
+        pruning_prob: float=0.1,
+    ) -> torch.Tensor:
+    """
+    Produce the predicted segmentation by `rankdice` based on the estimated output probability.
+
+    Parameters
+    ----------
+    probs: Tensor, shape (batch_size, num_class, width, height)
+        The estimated probability tensor.
+
+    opt_metric: str, default='dice'
+        The metric aim to optimize, either 'iou' or 'dice'.
+
+    allow_overlap: bool, default=False
+        Whether to allow overlapping in multi-class segmentation.
+
+    pruning_prob: float, default=0.1
+        The threshold for pruning, if all probabilities are less than `pruning_prob`, we skip the class.
+
+    Return
+    ------
+    predict: Tensor, shape (batch_size, num_class, width, height) if allow_overlap is True,
+        otherwise shape (batch_size, width, height)
+    """
+
+    assert opt_metric in ['iou', 'dice'], 'opt_metric should be iou or dice'
+
+    def compute_opt_tau(
+            opt_metric: str,
+            pb_mean: torch.Tensor,
+            cumsum_prob: torch.Tensor,
+            dim: int,
+            device: torch.device
+        ):
+        """Compute optimal tau and cutpoint based on the selected metric."""
+        if opt_metric == 'dice':
+            discount = pb_mean.unsqueeze(-1) + torch.arange(1, dim + 1, device=device).view(1, 1, -1) + 1.0
+            metric_values = 2.0 * cumsum_prob / discount
+        elif opt_metric == 'iou':
+            discount = pb_mean.unsqueeze(-1) - cumsum_prob + torch.arange(1, dim + 1, device=device).view(1, 1, -1)
+            metric_values = cumsum_prob / discount
+        else:
+            raise ValueError(f'Unsupported metric: {opt_metric}')
+
+        # Get optimal tau indices
+        opt_tau = torch.argmax(metric_values, dim=-1) + 1
+        # cutpoint = sorted_prob[torch.arange(batch_size)[:, None], torch.arange(num_class), opt_tau - 1]
+        return opt_tau
+
+    def convert_to_nonoverlap(overlap_predict, prob, opt_metric, sorted_prob, pb_mean, pruning_prob=0.1):
+        num_class = overlap_predict.size(0)
+        nonoverlap_predict = torch.zeros_like(overlap_predict[0], dtype=torch.uint8)
+        assert num_class <= 256, 'num_class should be less than 256, when using uint8'
+        overlap_mask = overlap_predict.sum(0) > 1
+        increment_score = torch.zeros_like(prob, dtype=torch.float32)
+        for c in range(num_class):
+            if sorted_prob[c][0] <= pruning_prob:
+                continue
+            safe_to_predict = overlap_predict[c] & ~overlap_mask
+            nonoverlap_predict[safe_to_predict] = c
+            mu = prob[c][safe_to_predict].sum().item()
+            opt_tau_this_c = safe_to_predict.sum().item()
+            if opt_metric == 'dice':
+                increment_score[c] = 2 * ((mu + prob[c]) / (opt_tau_this_c + pb_mean[c] + 2) - mu / (opt_tau_this_c + pb_mean[c] + 1))
+            else:
+                increment_score[c] = (mu + prob[c]) / (opt_tau_this_c + pb_mean[c] - mu - prob[c] + 1) - mu / (opt_tau_this_c + pb_mean[c] - mu)
+        increment_argmax_mask = increment_score.argmax(0)
+        nonoverlap_predict[overlap_mask] = increment_argmax_mask[overlap_mask].type(torch.uint8)
+        return nonoverlap_predict
+
+    is_binary = (prob.shape[1] == 2) and not allow_overlap
+
+    if is_binary:
+        prob = prob[:, 1:2, ...]
+        num_classes = 1
+
+    device = prob.device
+    batch_size, num_classes, img_shape = prob.shape[0], prob.shape[1], prob.shape[2:]
+
+    prob = torch.flatten(prob, start_dim=2, end_dim=-1)
+    dim = prob.shape[-1]
+
+    sorted_prob, top_index = torch.sort(prob, dim=-1, descending=True)
+    pb_mean = prob.sum(dim=-1)
+    cumsum_prob = torch.cumsum(sorted_prob, dim=-1)
+
+    overlap_predict = torch.zeros(batch_size, num_classes, dim, dtype=torch.bool, device=device)
+    opt_tau = compute_opt_tau(opt_metric, pb_mean, cumsum_prob, dim, device)
+    for b in range(batch_size):
+        for c in range(num_classes):
+            if sorted_prob[b, c, 0] <= pruning_prob:  # TODO: review this prune
+                continue
+            overlap_predict[b, c, top_index[b, c, :opt_tau[b, c]]] = True
+
+    if allow_overlap:
+        predict = overlap_predict.reshape(batch_size, num_classes, *img_shape)
+    else:
+        if is_binary:
+            nonoverlap_predict = overlap_predict[:, 0, ...].long()
+        else:
+            nonoverlap_predict = torch.zeros(batch_size, dim, dtype=torch.uint8, device=device)
+            for b in range(batch_size):
+                nonoverlap_predict[b] = convert_to_nonoverlap(overlap_predict[b], prob=prob[b], opt_metric=opt_metric, sorted_prob=sorted_prob[b], pb_mean=pb_mean[b])
+        predict = nonoverlap_predict.reshape(batch_size, *img_shape)
+
+    return predict
