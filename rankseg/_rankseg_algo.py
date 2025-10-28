@@ -208,7 +208,7 @@ def rankdice_batch(probs: torch.Tensor,
 
 def rankseg_rma(
         probs: torch.Tensor,
-        opt_metric: str="dice",
+        metric: str="dice",
         allow_overlap: bool=False,
         smooth: float=0.0,
         pruning_prob: float=0.1,
@@ -221,7 +221,7 @@ def rankseg_rma(
     probs: Tensor, shape (batch_size, num_class, width, height)
         The estimated probability tensor.
 
-    opt_metric: str, default='dice'
+    metric: str, default='dice'
         The metric aim to optimize, either 'iou' or 'dice'.
 
     allow_overlap: bool, default=False
@@ -239,10 +239,10 @@ def rankseg_rma(
         otherwise shape (batch_size, width, height)
     """
 
-    assert opt_metric in ['iou', 'dice'], 'opt_metric should be iou or dice'
+    assert metric in ['iou', 'dice'], 'metric should be iou or dice'
 
     def compute_opt_tau(
-            opt_metric: str,
+            metric: str,
             pb_mean: torch.Tensor,
             cumsum_prob: torch.Tensor,
             dim: int,
@@ -251,15 +251,15 @@ def rankseg_rma(
         """Compute optimal tau and cutpoint based on the selected metric."""
         device = pb_mean.device
         taus = torch.arange(1, dim + 1, device=device).view(1, 1, -1)
-        if opt_metric == 'dice':
+        if metric == 'dice':
             discount = pb_mean.unsqueeze(-1) + taus + 1.0 + smooth
             metric_values = 2.0 * cumsum_prob / discount
             metric_values += smooth / (discount - 1)
-        elif opt_metric == 'iou':
+        elif metric == 'iou':
             discount = pb_mean.unsqueeze(-1) - cumsum_prob + taus + smooth
             metric_values = (cumsum_prob + smooth) / discount
         else:
-            raise ValueError(f'Unsupported metric: {opt_metric}')
+            raise ValueError(f'Unsupported metric: {metric}')
 
         # Get optimal tau indices
         opt_tau = torch.argmax(metric_values, dim=-1) + 1
@@ -269,7 +269,7 @@ def rankseg_rma(
     def convert_to_nonoverlap(
             overlap_preds: torch.Tensor,
             probs: torch.Tensor,
-            opt_metric: str,
+            metric: str,
             sorted_prob: torch.Tensor,
             pb_mean: torch.Tensor,
             smooth: float,
@@ -287,7 +287,7 @@ def rankseg_rma(
             nonoverlap_predict[safe_to_predict] = c
             mu = probs[c][safe_to_predict].sum().item()
             opt_tau_this_c = safe_to_predict.sum().item()
-            if opt_metric == 'dice':
+            if metric == 'dice':
                 increment_score[c] = 2 * ((mu + probs[c]) / (opt_tau_this_c + pb_mean[c] + 2 + smooth) - mu / (opt_tau_this_c + pb_mean[c] + 1 + smooth))
                 increment_score[c] += smooth * (1 / (opt_tau_this_c + pb_mean[c] + 1 + smooth) - 1 / (opt_tau_this_c + pb_mean[c] + smooth))
             else:
@@ -313,7 +313,7 @@ def rankseg_rma(
     cumsum_prob = torch.cumsum(sorted_prob, dim=-1)
 
     overlap_preds = torch.zeros(batch_size, num_classes, dim, dtype=torch.bool, device=device)
-    opt_tau = compute_opt_tau(opt_metric, pb_mean, cumsum_prob, dim, smooth)
+    opt_tau = compute_opt_tau(metric, pb_mean, cumsum_prob, dim, smooth)
     for b in range(batch_size):
         for c in range(num_classes):
             if sorted_prob[b, c, 0] <= pruning_prob:  # TODO: review this prune
@@ -331,7 +331,7 @@ def rankseg_rma(
                 nonoverlap_preds[b] = convert_to_nonoverlap(
                     overlap_preds[b],
                     probs=probs[b],
-                    opt_metric=opt_metric,
+                    metric=metric,
                     sorted_prob=sorted_prob[b],
                     pb_mean=pb_mean[b],
                     smooth=smooth,

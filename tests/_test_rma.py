@@ -1,6 +1,6 @@
 import torch
 import torch.nn.functional as F
-from rankseg import rankdice_batch, rankseg_rma
+from rankseg import RankSEG
 
 probs = torch.load('./tests/data/demo_probs.pt')
 labels = torch.load('./tests/data/demo_labels.pt')
@@ -8,10 +8,13 @@ labels = torch.load('./tests/data/demo_labels.pt')
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 probs, labels = probs.to(device), labels.to(device)
 
-preds = rankdice_batch(probs, solver='BA', eps=1e-4)
+rankseg_ba_obj = RankSEG(metric='dice', solver='BA')
+preds = rankseg_ba_obj.predict(probs)
 
-preds_rma_overlap = rankseg_rma(probs, allow_overlap=True)
-preds_rma = rankseg_rma(probs)
+rankseg_rma_obj = RankSEG(metric='dice', solver='RMA', allow_overlap=True)
+preds_rma_overlap = rankseg_rma_obj.predict(probs)
+rankseg_rma_obj = RankSEG(metric='dice', solver='RMA', allow_overlap=False)
+preds_rma = rankseg_rma_obj.predict(probs)
 
 print("=" * 70)
 print(f"{'Class':<8} {'RankSEG-BA':<15} {'RankSEG-RMA (overlap)':<15} {'RankSEG-RMA (non-overlap)':<15}")

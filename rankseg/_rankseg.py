@@ -5,20 +5,20 @@ import numpy as np
 import scipy
 import torch
 import torch.nn.functional as F
-from rankseg import rankdice_batch
+from rankseg import rankdice_batch, rankseg_rma
 
-class rankseg(object):
+class RankSEG(object):
     def __init__(self,
                  metric='dice',
                  smooth=0.,
                  solver='BA',
-                 eps=1e-4,
-                 pruning_prob=0.5):
+                 pruning_prob=0.5,
+                 **other_params):
         self.metric = metric
         self.smooth = smooth
         self.solver = solver
-        self.eps = eps
         self.pruning_prob = pruning_prob
+        self.other_params = other_params
 
     def predict(self, probs):
         if self.metric == 'dice':
@@ -26,12 +26,16 @@ class rankseg(object):
                 preds = rankdice_batch(probs, 
                                     solver=self.solver, 
                                     smooth=self.smooth, 
-                                    eps=self.eps,
-                                    pruning_prob=self.pruning_prob)
+                                    pruning_prob=self.pruning_prob,
+                                    **self.other_params)
             elif self.solver == 'exact':
                 raise NotImplementedError('Exact solver is not implemented yet')
             elif self.solver == 'RMA':
-                raise NotImplementedError('RMA solver is not implemented yet')
+                preds = rankseg_rma(probs,
+                                    metric=self.metric,
+                                    smooth=self.smooth,
+                                    pruning_prob=self.pruning_prob,
+                                    **self.other_params)
             else:
                 raise ValueError('Unknown solver: %s' % self.solver)
         elif self.metric == 'IoU':
