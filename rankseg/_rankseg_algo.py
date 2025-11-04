@@ -18,7 +18,7 @@ def rankdice_batch(probs: torch.Tensor,
 
     Parameters
     ----------
-    probs: Tensor, shape (batch_size, num_class, width, height)
+    probs: Tensor, shape (batch_size, num_class, *image_shape)
         The estimated probability tensor. 
     
     solver: str, {'exact', 'TRNA', 'BA', 'BA+TRNA'}
@@ -41,7 +41,7 @@ def rankdice_batch(probs: torch.Tensor,
 
     Return
     ------
-    predict: Tensor, shape (batch_size, num_class, width, height)
+    predict: Tensor, shape (batch_size, num_class, *image_shape)
         The predicted segmentation based on `rankdice`.
 
     Reference
@@ -50,7 +50,7 @@ def rankdice_batch(probs: torch.Tensor,
     Dai, B., & Li, C. (2023). RankSEG: a consistent ranking-based framework for segmentation. Journal of Machine Learning Research, 24(224), 1-50.
     """
 
-    batch_size, num_class, width, height = probs.shape
+    batch_size, num_class, *image_shape = probs.shape
 
     probs = torch.flatten(probs, start_dim=2, end_dim=-1)
     dim = probs.shape[-1]
@@ -201,7 +201,7 @@ def rankdice_batch(probs: torch.Tensor,
                 preds[b, k, top_index[b,k,:opt_tau]] = True
                 # prob_cutoff[b,k] = sorted_prob[b,k,opt_tau]
     
-    return preds.reshape(batch_size, num_class, width, height)
+    return preds.reshape(batch_size, num_class, *image_shape)
 
 
 def rankseg_rma(
@@ -216,7 +216,7 @@ def rankseg_rma(
 
     Parameters
     ----------
-    probs: Tensor, shape (batch_size, num_class, width, height)
+    probs: Tensor, shape (batch_size, num_class, *image_shape)
         The estimated probability tensor.
 
     metric: str, default='dice'
@@ -235,8 +235,8 @@ def rankseg_rma(
 
     Return
     ------
-    preds: Tensor, shape (batch_size, num_class, width, height) if return_binary_masks is True,
-        otherwise shape (batch_size, width, height)
+    preds: Tensor, shape (batch_size, num_class, *image_shape) if return_binary_masks is True,
+        otherwise shape (batch_size, *image_shape)
     """
 
     assert metric in ['iou', 'dice'], 'metric should be iou or dice'
@@ -303,7 +303,7 @@ def rankseg_rma(
         num_classes = 1
 
     device = probs.device
-    batch_size, num_classes, img_shape = probs.shape[0], probs.shape[1], probs.shape[2:]
+    batch_size, num_classes, *image_shape = probs.shape
 
     probs = torch.flatten(probs, start_dim=2, end_dim=-1)
     dim = probs.shape[-1]
@@ -321,7 +321,7 @@ def rankseg_rma(
             overlap_preds[b, c, top_index[b, c, :opt_tau[b, c]]] = True
 
     if return_binary_masks:
-        preds = overlap_preds.reshape(batch_size, num_classes, *img_shape)
+        preds = overlap_preds.reshape(batch_size, num_classes, *image_shape)
     else:
         if is_binary:
             nonoverlap_preds = overlap_preds[:, 0, ...].long()
@@ -337,6 +337,6 @@ def rankseg_rma(
                     smooth=smooth,
                     pruning_prob=pruning_prob,
                 )
-        preds = nonoverlap_preds.reshape(batch_size, *img_shape)
+        preds = nonoverlap_preds.reshape(batch_size, *image_shape)
 
     return preds
