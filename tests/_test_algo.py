@@ -1,17 +1,16 @@
 import torch
 import torch.nn.functional as F
-from rankseg import rankdice_batch, RefinedNormalPB, RefinedNormal
-from _rankseg_full import rank_dice, PB_RNA, app_action_set
+from rankseg import rankdice_ba, rank_dice
 
-B, C, W, H = 32, 1, 16, 16
-probs = torch.rand(32, C, W, H).cuda()
-labels = torch.bernoulli(probs)
+probs = torch.load('./tests/data/demo_probs.pt')
+labels = torch.load('./tests/data/demo_labels.pt')
 
-probs, labels = probs.cuda(), labels.cuda()
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+probs, labels = probs.to(device), labels.to(device)
 
-preds, cutpoint_rd = rankdice_batch(probs, solver='BA', eps=2e-4)
+preds = rankdice_ba(probs, solver='BA', eps=1e-4)
 
-preds_old, _, _ = rank_dice(output=probs, device=probs.device, app=2, smooth=0.0, verbose=0)
+preds_old, _, _ = rank_dice(output=probs, device=probs.device, app=2, smooth=0.0)
 
 print("=" * 70)
 print(f"{'Class':<8} {'New Method':<15} {'Old Method':<15} {'Difference':<15}")
@@ -20,7 +19,7 @@ print("=" * 70)
 dice_new_list = []
 dice_old_list = []
 
-for k in range(C):
+for k in range(21):
     # New method
     tp_new = ((preds[:, k] == 1) & (labels == k)).sum(dim=(-2,-1)).float()
     p = (labels == k).sum(dim=(-2,-1)).float()
@@ -42,5 +41,5 @@ for k in range(C):
     print(f"{k:<8} {dice_new_mean:<15.4f} {dice_old_mean:<15.4f} {diff:+.4f}")
 
 print("=" * 70)
-print(f"{'Mean':<8} {sum(dice_new_list)/C:<15.4f} {sum(dice_old_list)/C:<15.4f} {(sum(dice_new_list)-sum(dice_old_list))/C:+.4f}")
+print(f"{'Mean':<8} {sum(dice_new_list)/21:<15.4f} {sum(dice_old_list)/21:<15.4f} {(sum(dice_new_list)-sum(dice_old_list))/21:+.4f}")
 print("=" * 70)

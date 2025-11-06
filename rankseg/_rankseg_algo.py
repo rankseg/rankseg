@@ -1,14 +1,11 @@
-# Author: Ben Dai <bendai@cuhk.edu.hk>
+# Author: Ben Dai <bendai@cuhk.edu.hk>, Zixun Wang <zixunwang@link.cuhk.edu.hk>
 # License: BSD 3 clause
 
-import numpy as np
-import scipy
 import torch
 import torch.nn.functional as F
 from rankseg._distribution import RefinedNormalPB
-import warnings
 
-def rankdice_batch(probs: torch.Tensor, 
+def rankdice_ba(probs: torch.Tensor, 
                    solver: str='BA', 
                    smooth: float=0.0, 
                    eps: float=1e-4,
@@ -18,36 +15,39 @@ def rankdice_batch(probs: torch.Tensor,
 
     Parameters
     ----------
-    probs: Tensor, shape (batch_size, num_class, *image_shape)
+    probs : Tensor, shape (batch_size, num_class, \*image_shape)
         The estimated probability tensor. 
     
-    solver: str, {'exact', 'TRNA', 'BA', 'BA+TRNA'}
+    solver : str, {'exact', 'TRNA', 'BA', 'BA+TRNA'}
         The approximate algorithm used to implement `RankDice`. 
         `exact` indicates exact evaluation (under development),
         `TRNA` indicates the truncated refined normal approximation (T-RNA), and 
         `BA` indicates the blind approximation (BA),
         `BA+TRNA` indicates a combination of both BA and TRNA.
-            - we use Cohen's d to determine if we use BA or TRNA
-            - if Cohen's d is less than 0.2, we use BA; otherwise, we use TRNA
+        
+        - we use Cohen's d to determine if we use BA or TRNA
+        - if Cohen's d is less than 0.2, we use BA; otherwise, we use TRNA
     
-    smooth: float, default=0.0
+    smooth : float, default=0.0
         A smooth parameter in the Dice metric.
     
-    eps: float, default=1e-4
-        The threshold for truncation of the pmf of posisson-binomial distribution, if the probability is less than `eps`, we truncate it to 0.
+    eps : float, default=1e-4
+        The threshold for truncation of the pmf of posisson-binomial distribution, 
+        if the probability is less than `eps`, we truncate it to 0.
 
-    pruning_prob: float, default=0.5
-        The threshold for pruning, if all probabilities are less than `pruning_prob`, we skip the class.
+    pruning_prob : float, default=0.5
+        The threshold for pruning, if all probabilities are less than `pruning_prob`, 
+        we skip the class.
 
-    Return
-    ------
-    predict: Tensor, shape (batch_size, num_class, *image_shape)
+    Returns
+    -------
+    predict : Tensor, shape (batch_size, num_class, \*image_shape)
         The predicted segmentation based on `rankdice`.
 
-    Reference
-    ---------
-
-    Dai, B., & Li, C. (2023). RankSEG: a consistent ranking-based framework for segmentation. Journal of Machine Learning Research, 24(224), 1-50.
+    References
+    ----------
+    Dai, B., & Li, C. (2023). RankSEG: a consistent ranking-based framework for 
+    segmentation. Journal of Machine Learning Research, 24(224), 1-50.
     """
 
     batch_size, num_class, *image_shape = probs.shape
@@ -216,27 +216,29 @@ def rankseg_rma(
 
     Parameters
     ----------
-    probs: Tensor, shape (batch_size, num_class, *image_shape)
+    probs : Tensor, shape (batch_size, num_class, \*image_shape)
         The estimated probability tensor.
 
-    metric: str, default='dice'
+    metric : str, default='dice'
         The metric aim to optimize, either 'iou' or 'dice'.
 
-    return_binary_masks: bool, default=False
+    return_binary_masks : bool, default=False
         Whether to return or allow binary masks per class (multi-label segmentation).
         If False, performs multi-class segmentation where each pixel belongs to exactly one class.
         If True, performs multi-label segmentation where pixels can belong to multiple classes.
 
-    smooth: float, default=0.0
+    smooth : float, default=0.0
         A smooth parameter in the Dice metric.
 
-    pruning_prob: float, default=0.1
-        The threshold for pruning, if all probabilities are less than `pruning_prob`, we skip the class.
+    pruning_prob : float, default=0.1
+        The threshold for pruning, if all probabilities are less than `pruning_prob`, 
+        we skip the class.
 
-    Return
-    ------
-    preds: Tensor, shape (batch_size, num_class, *image_shape) if return_binary_masks is True,
-        otherwise shape (batch_size, *image_shape)
+    Returns
+    -------
+    preds : Tensor
+        Shape (batch_size, num_class, \*image_shape) if return_binary_masks is True,
+        otherwise shape (batch_size, \*image_shape)
     """
 
     assert metric in ['iou', 'dice'], 'metric should be iou or dice'
@@ -339,4 +341,4 @@ def rankseg_rma(
                 )
         preds = nonoverlap_preds.reshape(batch_size, *image_shape)
 
-    return preds
+    return preds.type(torch.LongTensor)

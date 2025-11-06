@@ -1,57 +1,63 @@
-# Author: Ben Dai <bendai@cuhk.edu.hk>
+# Author: Ben Dai <bendai@cuhk.edu.hk>, Zixun Wang <zixunwang@link.cuhk.edu.hk>
 # License: BSD 3 clause
 
-import numpy as np
-import scipy
 import torch
-import torch.nn.functional as F
-from rankseg import rankdice_batch, rankseg_rma
+from rankseg import rankdice_ba, rankseg_rma
 import warnings
 
 class RankSEG(object):
     """Rank-based Segmentation for optimizing segmentation metrics.
     
     This class provides methods to convert probability maps into binary segmentation
-    predictions by optimizing ranking-based metrics like Dice coefficient.
+    predictions by optimizing ranking-based metrics like AP, Dice, IoU segmentation metrics.
     
     Parameters
     ----------
     metric : str, default='dice'
         The segmentation metric to optimize. Currently supported:
+        
         - 'dice': Dice coefficient (F1 score)
         - 'IoU': Intersection over Union (not yet implemented)
+        - 'AP': Average Precision (not yet implemented)
     
     smooth : float, default=0.0
         Smoothing parameter added to numerator and denominator to avoid
         division by zero and improve numerical stability.
 
     return_binary_masks : bool, default=False
-        Whether to return or allow binary masks per class (multi-label segmentation). Generally, this is only meaningful when segmentation datasets contain multiple labels.
+        Whether to return or allow binary masks per class (multi-label segmentation). 
+        Generally, this is only meaningful when segmentation datasets contain multiple labels.
         If False, performs multi-class segmentation where each pixel belongs to exactly one class.
         If True, performs multi-label segmentation where pixels can belong to multiple classes.
 
     solver : str, default='RMA'
         The optimization solver to use. Options:
+        
         - When metric is 'dice':
-            - 'exact': Exact solver (not yet implemented)
-            - 'BA': Blind approximation
-            - 'TRNA': Tuncated refined normal approximation
-            - 'BA+TRNA': Automatically select from 'BA' or 'TRNA' solver based on data information
-            - 'RMA': Reciprocal moment approximation
+          
+          - 'exact': Exact solver (not yet implemented)
+          - 'BA': Blind approximation
+          - 'TRNA': Tuncated refined normal approximation
+          - 'BA+TRNA': Automatically select from 'BA' or 'TRNA' solver based on data information
+          - 'RMA': Reciprocal moment approximation
+          
         - When metric is 'IoU':
-            - 'RMA': Reciprocal moment approximation
+          
+          - 'RMA': Reciprocal moment approximation
+          
         - When metric is 'AP':
-            - simply taking argmax or truncation (at 0.5) over classes
+          
+          - simply taking argmax or truncation (at 0.5) over classes
     
-    pruning_prob : float, default=0.1
+    pruning_prob : float, default=0.5
         Probability threshold for pruning. Classes with maximum probability
         below this threshold may be skipped to improve efficiency.
         Should be in range [0, 1].
     
-    **solver_params : dict
-        Additional parameters passed to the specific solver:
-        - For 'BA', 'TRNA' or 'BA+TRNA': 
-            eps (1 - confidence intervals for refined normal approximation of poissoon-binomial distributions)
+    \*\*solver_params : dict
+        Additional parameters passed to the specific solver.
+        For 'BA', 'TRNA' or 'BA+TRNA': eps (1 - confidence intervals for refined 
+        normal approximation of poissoon-binomial distributions)
 
     Examples
     --------
@@ -70,7 +76,7 @@ class RankSEG(object):
                  smooth: float=0.,
                  return_binary_masks: bool=False,
                  solver: str='RMA',
-                 pruning_prob: float=0.1,
+                 pruning_prob: float=0.5,
                  **solver_params):
         self.metric = metric
         self.smooth = smooth
@@ -85,15 +91,15 @@ class RankSEG(object):
         Parameters
         ----------
         probs : torch.Tensor
-            Probability maps of shape (batch_size, num_class, *image_shape).
+            Probability maps of shape (batch_size, num_class, \*image_shape).
             Values should be in range [0, 1].
             image_shape has no restriction on the number of dimensions,
-                can be (height, width) for 2D images, or (height, width, depth) for 3D images, or others.
+            can be (height, width) for 2D images, or (height, width, depth) for 3D images, or others.
         
         Returns
         -------
         preds : torch.Tensor
-            Binary segmentation predictions of shape (batch_size, num_class, *image_shape).
+            Binary segmentation predictions of shape (batch_size, num_class, \*image_shape).
             Values are 0 or 1 (or boolean True/False depending on solver).
         """
         batch_size, num_class, *image_shape = probs.shape
@@ -103,7 +109,7 @@ class RankSEG(object):
                 if (not self.return_binary_masks) and (num_class > 1):
                     warnings.warn('For Dice metric with BA/TRNA/BA+TRNA solver, it only supports returning binary masks per class (multi-label segmentation). Thus, `return_binary_masks` is automatically set as `return_binary_masks=True`.')
                     self.return_binary_masks = True
-                preds = rankdice_batch(probs, 
+                preds = rankdice_ba(probs, 
                                     solver=self.solver,
                                     smooth=self.smooth,
                                     pruning_prob=self.pruning_prob,
