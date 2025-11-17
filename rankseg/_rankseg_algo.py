@@ -102,7 +102,7 @@ def rankdice_ba(probs: torch.Tensor,
         if len(active_indices) == 0:
             continue
         ba_indices, trna_indices = [], []
-        if solver == 'auto':
+        if solver == 'BA+TRNA':
             cohens_d = 1.0 / torch.clamp(pb_scale[active_indices, k], min=1e-8)
             use_ba_mask = cohens_d < 0.2
             ba_indices = active_indices[use_ba_mask]
