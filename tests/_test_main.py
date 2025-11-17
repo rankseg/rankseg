@@ -4,8 +4,8 @@ from rankseg import RankSEG
 from torchmetrics.segmentation import DiceScore
 from torchmetrics.functional.segmentation import dice_score
 
-probs = torch.load('./tests/data/demo_probs.pt')
-labels = torch.load('./tests/data/demo_labels.pt')
+probs = torch.load('./data/demo_probs.pt')
+labels = torch.load('./data/demo_labels.pt')
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 probs, labels = probs.to(device), labels.to(device)
@@ -30,7 +30,7 @@ preds_rma = preds_rma.permute(0, -1, 1, 2)
 rankseg_acc = RankSEG(metric='acc', solver='argmax', output_mode='multiclass')
 preds_acc = rankseg_acc.predict(probs)
 
-rankseg_acc = RankSEG(metric='acc', solver='truncation', output_mode='multilabel')
+rankseg_acc = RankSEG(metric='acc', solver='TR', output_mode='multilabel')
 preds_acc = rankseg_acc.predict(probs)
 
 
