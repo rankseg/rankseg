@@ -21,6 +21,7 @@ class RefinedNormalPB(Distribution):
         F(k; skew) = G( (k + 0.5 - loc) / scale ); \quad G(x) = \Phi(x) + skew * (1 - x^2) * \phi(x) / 6
     
     where:
+
     - \Phi(x) is the standard normal CDF
     - \phi(x) is the standard normal PDF
     - skew is the skewness parameter
@@ -175,6 +176,7 @@ class RefinedNormal(scipy.stats.rv_continuous):
     F(x; skew) = Φ(x) + skew * (1 - x²) * φ(x) / 6
     
     where:
+
     - Φ(x) is the standard normal CDF
     - φ(x) is the standard normal PDF
     - skew is the skewness parameter
@@ -188,9 +190,9 @@ class RefinedNormal(scipy.stats.rv_continuous):
     Notes
     -----
     This refined approximation offers improved accuracy over the standard normal
-    approximation.
+    approximation by incorporating a skewness correction term [1]_.
     
-    In the context of RankSEG, this distribution is used to efficiently compute
+    In the context of RankSEG, this distribution is used to efficiently
     approximate the Poisson binomial distribution.
 
     References
