@@ -14,3 +14,7 @@ sphinx_click
 sphinx_sqlalchemy
 sphinx_contributors
 sphinx_prompt
+furo
+renku_sphinx_theme
+sphinx-autoapi
+sphinx_autodoc_typehints

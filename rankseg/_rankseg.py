@@ -6,7 +6,7 @@ from rankseg._rankseg_algo import rankdice_ba, rankseg_rma
 import warnings
 
 class RankSEG(object):
-    """RankSEG segmentation prediction module for optimizing segmentation metrics.
+    """RankSEG segmentation prediction module for optimizing segmentation metrics [2]_ [3]_ .
     
     This class provides methods to convert probability maps into segmentation
     predictions by optimizing segmentation metrics like AP, Dice, IoU, and Accuracy.
@@ -58,6 +58,12 @@ class RankSEG(object):
         Additional parameters passed to the specific solver.
         For 'BA', 'TRNA' or 'BA+TRNA': eps (1 - confidence intervals for refined 
         normal approximation of poissoon-binomial distributions)
+
+    References
+    ----------
+    .. [2] Dai, B., & Li, C. (2023). Rankseg: a consistent ranking-based framework for segmentation. Journal of Machine Learning Research, 24(224), 1-50.
+
+    .. [3] Wang, Z., & Dai, B. (2025). RankSEG-RMA: An Efficient Segmentation Algorithm via Reciprocal Moment Approximation. arXiv preprint arXiv:2510.15362.
 
     Examples
     --------
