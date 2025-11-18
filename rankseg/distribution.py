@@ -190,16 +190,16 @@ class RefinedNormal(scipy.stats.rv_continuous):
     Notes
     -----
     This refined approximation offers improved accuracy over the standard normal
-    approximation by incorporating a skewness correction term [1]_.
+    approximation by incorporating a skewness correction term :cite:p:`volkova1996refinement`.
     
     In the context of RankSEG, this distribution is used to efficiently
     approximate the Poisson binomial distribution.
 
     References
     ----------
-    .. [1] Volkova, A.Y., 1996. A refinement of the central limit theorem for sums 
-           of independent random indicators. Theory of Probability and its 
-           Applications 40, 791-794.
+    :cite:p:`volkova1996refinement` Volkova, A.Y., 1996. A refinement of the central limit theorem for sums 
+    of independent random indicators. Theory of Probability and its 
+    Applications 40, 791-794.
     """
     def _argcheck(self, skew):
         return np.isfinite(skew)

@@ -18,3 +18,4 @@ furo
 renku_sphinx_theme
 sphinx-autoapi
 sphinx_autodoc_typehints
+sphinxcontrib-bibtex

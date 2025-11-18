@@ -201,6 +201,9 @@ Learn More
       
       Source code, issues, and contributions
 
+References
+----------
+.. bibliography::
 
 .. toctree::
    :maxdepth: 2

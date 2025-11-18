@@ -406,7 +406,7 @@ A: No! RankSEG is a post-processing method that works with any pre-trained segme
 Next Steps
 ----------
 
-- Check out the :doc:`API Reference </autoapi/rankseg/index>` for detailed parameter descriptions
+- Check out the :doc:`API Reference </API>` for detailed parameter descriptions
 - See :doc:`Citation </citation>` for how to cite RankSEG in your research
 - Report issues or contribute on `GitHub <https://github.com/statmlben/rankseg>`_
               
