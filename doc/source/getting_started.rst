@@ -408,5 +408,5 @@ Next Steps
 
 - Check out the :doc:`API Reference </API>` for detailed parameter descriptions
 - See :doc:`Citation </citation>` for how to cite RankSEG in your research
-- Report issues or contribute on `GitHub <https://github.com/statmlben/rankseg>`_
+- Report issues or contribute on `GitHub <https://github.com/rankseg/rankseg>`_
               

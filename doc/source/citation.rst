@@ -44,4 +44,4 @@ The RMA solver for efficient segmentation:
 License
 -------
 
-RankSEG is released under the BSD 3-Clause License. See the `LICENSE <https://github.com/statmlben/rankseg/blob/main/LICENSE>`_ file for details.
+RankSEG is released under the BSD 3-Clause License. See the `LICENSE <https://github.com/rankseg/rankseg/blob/main/LICENSE>`_ file for details.

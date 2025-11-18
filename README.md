@@ -8,7 +8,7 @@
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 [![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org)
-[![GitHub Stars](https://img.shields.io/github/stars/statmlben/rankseg?style=social)](https://github.com/statmlben/rankseg)
+[![GitHub Stars](https://img.shields.io/github/stars/rankseg/rankseg?style=social)](https://github.com/rankseg/rankseg)
 [![Documentation](https://img.shields.io/badge/docs-rankseg-brightgreen.svg)](https://rankseg.readthedocs.io/en/latest/)
 
 [![JMLR](https://img.shields.io/badge/JMLR-v24|22.0712-black.svg)](https://www.jmlr.org/papers/v24/22-0712.html)
@@ -107,12 +107,12 @@ If you use RankSEG in your research, please cite our papers:
 ## Useful Links
 
 - **Documentation**: https://rankseg.readthedocs.io/en/latest/
-- **GitHub Repository**: https://github.com/statmlben/rankseg
+- **GitHub Repository**: https://github.com/rankseg/rankseg
 - **PyPI Package**: https://pypi.org/project/rankseg/
 - **JMLR Paper**: https://www.jmlr.org/papers/v24/22-0712.html
 - **NeurIPS Paper**: https://openreview.net/pdf?id=4tRMm1JJhw
-- **Issue Tracker**: https://github.com/statmlben/rankseg/issues
+- **Issue Tracker**: https://github.com/rankseg/rankseg/issues
 
 ## Contributing
 
-We welcome contributions! Please feel free to submit issues or pull requests on our [GitHub repository](https://github.com/statmlben/rankseg).
+We welcome contributions! Please feel free to submit issues or pull requests on our [GitHub repository](https://github.com/rankseg/rankseg).

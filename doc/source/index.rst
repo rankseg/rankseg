@@ -31,8 +31,8 @@
 .. |Downloads| image:: https://static.pepy.tech/badge/rankseg
 .. _Downloads: https://pepy.tech/project/rankseg
 
-.. |GitHub| image:: https://img.shields.io/github/stars/statmlben/rankseg?style=social
-.. _GitHub: https://github.com/statmlben/rankseg
+.. |GitHub| image:: https://img.shields.io/github/stars/rankseg/rankseg?style=social
+.. _GitHub: https://github.com/rankseg/rankseg
 
 .. |JMLR| image:: https://img.shields.io/badge/JMLR-v24|22.0712-black.svg
 .. _JMLR: https://www.jmlr.org/papers/v24/22-0712.html
@@ -197,7 +197,7 @@ Learn More
       How to cite RankSEG in your research
 
    .. grid-item-card:: 💻 GitHub
-      :link: https://github.com/statmlben/rankseg
+      :link: https://github.com/rankseg/rankseg
       
       Source code, issues, and contributions
 
