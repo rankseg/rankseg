@@ -52,6 +52,7 @@ extensions = [
     "sphinx.ext.linkcode",
     "sphinx.ext.intersphinx",
     "sphinx_autodoc_typehints",
+    "sphinxcontrib.bibtex",
     # 'sphinx.ext.autosummary',
     # 'sphinx_gallery.gen_gallery',
 	# 'numpydoc',
@@ -68,7 +69,7 @@ autodoc_typehints = "signature"
 autoapi_type = "python"
 autoapi_dirs = ['../../rankseg/']
 autoapi_template_dir = "_templates/autoapi"
-autoapi_root = "autoapi/rankseg/rankseg"
+autoapi_root = "autoapi/rankseg"
 autoapi_add_toctree_entry = False
 autoapi_options = [
     "members",
@@ -79,6 +80,9 @@ autoapi_options = [
 ]
 autoapi_keep_files = False
 
+# -- bibtex configuration -----------------------------------------------------
+bibtex_bibfiles = ['refs.bib']
+bibtex_default_style = 'unsrt'
 
 # -- custom auto_summary() macro ---------------------------------------------
 def contains(seq, item):

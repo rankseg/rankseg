@@ -6,7 +6,7 @@ from rankseg._rankseg_algo import rankdice_ba, rankseg_rma
 import warnings
 
 class RankSEG(object):
-    """RankSEG segmentation prediction module for optimizing segmentation metrics [2]_ [3]_ .
+    """RankSEG segmentation prediction module for optimizing segmentation metrics :cite:p:`dai2023rankseg`, :cite:p:`wang2025rankseg`.
     
     This class provides methods to convert probability maps into segmentation
     predictions by optimizing segmentation metrics like AP, Dice, IoU, and Accuracy.
@@ -61,9 +61,9 @@ class RankSEG(object):
 
     References
     ----------
-    .. [2] Dai, B., & Li, C. (2023). Rankseg: a consistent ranking-based framework for segmentation. Journal of Machine Learning Research, 24(224), 1-50.
+    :cite:p:`dai2023rankseg` Dai, B., & Li, C. (2023). Rankseg: a consistent ranking-based framework for segmentation. Journal of Machine Learning Research, 24(224), 1-50.
 
-    .. [3] Wang, Z., & Dai, B. (2025). RankSEG-RMA: An Efficient Segmentation Algorithm via Reciprocal Moment Approximation. arXiv preprint arXiv:2510.15362.
+    :cite:p:`wang2025rankseg` Wang, Z., & Dai, B. (2025). RankSEG-RMA: An Efficient Segmentation Algorithm via Reciprocal Moment Approximation. arXiv preprint arXiv:2510.15362.
 
     Examples
     --------

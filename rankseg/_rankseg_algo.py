@@ -46,8 +46,8 @@ def rankdice_ba(probs: torch.Tensor,
 
     References
     ----------
-    .. [1] Dai, B., & Li, C. (2023). RankSEG: a consistent ranking-based framework for 
-           segmentation. Journal of Machine Learning Research, 24(224), 1-50.
+    :cite:p:`dai2023rankseg` Dai, B., & Li, C. (2023). RankSEG: a consistent ranking-based framework for
+    segmentation. Journal of Machine Learning Research, 24(224), 1-50.
     """
 
     batch_size, num_class, *image_shape = probs.shape
@@ -239,6 +239,10 @@ def rankseg_rma(
     preds : Tensor
         Shape (batch_size, num_class, \*image_shape) if output_mode == 'multilabel',
         otherwise shape (batch_size, \*image_shape)
+
+    References
+    ----------
+    :cite:p:`wang2025rankseg` Wang, Z., & Dai, B. (2025). RankSEG-RMA: An Efficient Segmentation Algorithm via Reciprocal Moment Approximation. arXiv preprint arXiv:2510.15362.
     """
 
     assert metric in ['iou', 'dice'], 'metric should be iou or dice'
