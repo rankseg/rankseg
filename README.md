@@ -82,6 +82,13 @@ rankseg = RankSEG(metric='dice', solver='RMA')
 preds = rankseg.predict(probs)
 ```
 
+For more detailed full usage of RankSEG, please check out the following notebook.
+
+> 🚀 RankSEG Quickstart: Optimize Segmentation in 2 Minutes
+> 
+> [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1c2znXP7_yt_9MrE75p-Ag82LHz-WfKq-?usp=sharing)
+
+
 You can refer to the [documentation](https://rankseg.readthedocs.io/en/latest/) to explore more options and detailed API reference.
 
 ## Cite RankSEG
