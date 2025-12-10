@@ -10,6 +10,8 @@
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org)
 [![GitHub Stars](https://img.shields.io/github/stars/rankseg/rankseg?style=social)](https://github.com/rankseg/rankseg)
 [![Documentation](https://img.shields.io/badge/docs-rankseg-brightgreen.svg)](https://rankseg.readthedocs.io/en/latest/)
+
+[![Hugging Face Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue)](https://huggingface.co/spaces/statmlben/rankseg)
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1c2znXP7_yt_9MrE75p-Ag82LHz-WfKq-?usp=sharing)
 
 [![JMLR](https://img.shields.io/badge/JMLR-v24|22.0712-black.svg)](https://www.jmlr.org/papers/v24/22-0712.html)
@@ -63,20 +65,6 @@ Traditional segmentation methods use **argmax** or **thresholding** to convert m
 pip install -U rankseg
 ```
 
-<!-- ## 🚀 Integrations & Tutorials
-
-RankSEG works out-of-the-box with any PyTorch-based segmentation framework. Choose your platform below to see how to integrate in < 5 lines of code.
-
-| Framework | Task | Integration Guide | Run in Colab |
-| :--- | :--- | :--- | :--- |
-| **PyTorch (Native)** | Semantic Seg. | [Quickstart Guide](https://github.com/rankseg/rankseg/blob/main/notebooks/quickstart.ipynb) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1c2znXP7_yt_9MrE75p-Ag82LHz-WfKq-?usp=sharing) |
-| **MMSegmentation** | Semantic Seg. | [MMSeg Guide](https://github.com/rankseg/rankseg/blob/main/notebooks/rankseg_with_mmsegmentation.ipynb) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](YOUR_MMSEG_COLAB_LINK_HERE) |
-| **SMP (Segmentation Models)** | Semantic Seg. | *Coming Soon* | *Coming Soon* |
-| **Monai (Medical)** | 3D Seg. | *Coming Soon* | *Coming Soon* |
-| **Detectron2** | Instance Seg. | *Coming Soon* | *Coming Soon* | -->
-
-> **Note**: Don't see your favorite framework? Open an [issue](https://github.com/rankseg/rankseg/issues) or submit a PR!
-
 ## First Steps with RankSEG
 
 Once you installed `rankseg`, you can run the following code snippet to optimize predictions from your pre-trained segmentation model:
@@ -102,6 +90,21 @@ For more detailed full usage of RankSEG, please check out the following notebook
 > 
 > [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1c2znXP7_yt_9MrE75p-Ag82LHz-WfKq-?usp=sharing)
 
+
+## 🚀 Integrations & Tutorials in SEG Inference
+
+RankSEG works out-of-the-box with any PyTorch-based segmentation framework. Choose your platform below to see how to integrate in < 5 lines of code.
+
+| Framework | Task | Integration Guide | Run in Colab |
+| :--- | :--- | :--- | :--- |
+| **PyTorch (Native)** | Semantic Seg. | [Quickstart Guide](https://github.com/rankseg/rankseg/blob/main/notebooks/quickstart.ipynb) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1c2znXP7_yt_9MrE75p-Ag82LHz-WfKq-?usp=sharing) |
+| **MMSegmentation** | Semantic Seg. | *Coming Soon* | *Coming Soon* |
+| **PaddleSeg** | Semantic Seg. | *Coming Soon* | *Coming Soon* |
+<!-- | **SMP (Segmentation Models)** | Semantic Seg. | *Coming Soon* | *Coming Soon* |
+| **Monai (Medical)** | 3D Seg. | *Coming Soon* | *Coming Soon* |
+| **Detectron2** | Instance Seg. | *Coming Soon* | *Coming Soon* | -->
+
+> **Note**: Don't see your favorite framework? Open an [issue](https://github.com/rankseg/rankseg/issues) or submit a PR!
 
 You can refer to the [documentation](https://rankseg.readthedocs.io/en/latest/) to explore more options and detailed API reference.
 
