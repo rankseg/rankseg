@@ -1,0 +1,58 @@
+/* Make tabs more compact */
+.method-selection .sd-tab-set > input + label {
+  padding: 0.2rem 0.7rem;
+  font-size: 0.9rem;
+  margin: 0 0.35rem 0.35rem 0;
+  border: 1px solid #ddd;
+  border-radius: 9999px; /* pill shape */
+  line-height: 1.2;
+}
+
+/* Hover and active states for tabs */
+.method-selection .sd-tab-set > input:checked + label {
+  border-color: #964dd1ff;
+  color: #964dd1ff;
+}
+
+/* Make task tabs split space equally */
+.method-selection .tabs-task > input + label {
+  flex: 1;
+  text-align: center;
+}
+
+/* Make metric tabs split space equally */
+.method-selection .tabs-pred > input + label {
+  flex: 1;
+  text-align: center;
+}
+
+@media screen and (min-width: 960px) {
+
+  .method-selection .sd-tab-set.tabs-task::before {
+    content: "Probs Mode:";
+    font-weight: 600;
+    font-size: 0.85rem;
+    padding: 0.2rem 2.6rem 0.3rem 0.6rem;
+    display: block;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .method-selection .sd-tab-set.tabs-pred::before {
+    content: "Preds Mode:";
+    font-weight: 600;
+    font-size: 0.85rem;
+    padding: 0.2rem 2.6rem 0.3rem 0.6rem;
+    display: block;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+}
+
+/* Nested tabs styling */
+.method-selection .sd-tab-set .sd-tab-set {
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
