@@ -108,6 +108,7 @@ RankSEG 开箱即用，支持任何基于 PyTorch 的分割框架。
 | 框架 | 任务 | 集成指南 |
 | :--- | :--- | :--- |
 | **PyTorch (Native)** | 语义分割 | [快速入门指南](https://github.com/rankseg/rankseg/blob/main/notebooks/quickstart.ipynb) |
+| **SegmentAnything** | 语义分割 | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1qYWPsLDgDNkqqiPcBUbv2QboHQOFcsQU?usp=sharing) |
 | **MMSegmentation** | 语义分割 | *即将推出* |
 | **PaddleSeg** | 语义分割 | *即将推出* |
 

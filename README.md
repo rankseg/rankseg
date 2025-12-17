@@ -108,6 +108,7 @@ RankSEG works out-of-the-box with any PyTorch-based segmentation framework.
 | Framework | Task | Integration Guide |
 | :--- | :--- | :--- |
 | **PyTorch (Native)** | Semantic Seg. | [Quickstart Guide](https://github.com/rankseg/rankseg/blob/main/notebooks/quickstart.ipynb) |
+| **SegmentAnything** | Semantic Seg. | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1qYWPsLDgDNkqqiPcBUbv2QboHQOFcsQU?usp=sharing) |
 | **MMSegmentation** | Semantic Seg. | *Coming Soon* |
 | **PaddleSeg** | Semantic Seg. | *Coming Soon* |
 
