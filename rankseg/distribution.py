@@ -1,6 +1,5 @@
 # Author: Ben Dai <bendai@cuhk.edu.hk>
 from typing import Optional, Union
-from torch.types import _Number, _size
 import numpy as np
 import scipy
 import torch
@@ -9,6 +8,9 @@ import torch.nn.functional as F
 from torch.distributions import Distribution, constraints
 from torch.distributions.normal import Normal
 from torch.distributions.utils import broadcast_all
+
+
+_Number = (int, float, bool)
 
 
 class RefinedNormalPB(Distribution):
