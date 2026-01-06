@@ -24,7 +24,7 @@
 
 </div>
 
-**RankSEG** is a **plug-and-play** post-processing module that improves segmentation results during inference. It works with **ANY pre-trained segmentation model** (DeepLab, SegFormer, UPerNet, etc.) without any retraining or fine-tuning.
+**RankSEG** is a **plug-and-play** post-processing module that improves segmentation results during inference. It works with **ANY pre-trained logit/prob-outcome segmentation model** (SAM, DeepLab, SegFormer, UPerNet, etc.) without any retraining or fine-tuning.
 
 Instead of using simple `thresholding` or `argmax` (which don't care about Dice/IoU scores), RankSEG directly optimizes for these metrics - giving you better results without any extra training.
 

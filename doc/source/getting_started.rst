@@ -56,7 +56,7 @@ The above code handles **99% of semantic segmentation use cases** where we have 
 
 **Key Benefits:**
 
-- ✅ **No retraining required** - Works with any pre-trained segmentation model
+- ✅ **No retraining required** - Works with any pre-trained logit/prob-outcome segmentation model
 - ✅ **Metric-aware** - Directly optimizes for your target metric (Dice, IoU, or Accuracy)
 - ✅ **Statistically consistent** - Theoretically guaranteed to improve performance
 - ✅ **Easy integration** - Just 2 lines of code to add to your inference pipeline
@@ -349,7 +349,7 @@ A: Yes! For binary segmentation, set your ``probs`` shape to ``(batch, 1, *image
 
 **Q: Does RankSEG require retraining my model?**
 
-A: No! RankSEG is a post-processing method that works with any pre-trained segmentation model. Simply apply it to your model's probability outputs during inference.
+A: No! RankSEG is a post-processing method that works with any pre-trained logit/prob-outcome segmentation model. Simply apply it to your model's probability outputs during inference.
 
 ----
 
