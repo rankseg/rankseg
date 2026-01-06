@@ -1,7 +1,7 @@
 from setuptools import setup
 import os
 
-__version__ = "0.0.2"
+__version__ = "0.0.3"
 
 # Read the contents of README file
 this_directory = os.path.abspath(os.path.dirname(__file__))
@@ -26,8 +26,6 @@ setup(
         "Intended Audience :: Science/Research",
         "Intended Audience :: Developers",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
-        "Topic :: Scientific/Engineering :: Image Segmentation",
-        "Topic :: Scientific/Engineering :: Deep Learning",
         "License :: OSI Approved :: BSD License",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.9",
