@@ -291,8 +291,8 @@ def rankseg_rma(
                 continue
             safe_to_predict = overlap_preds[c] & ~overlap_mask
             nonoverlap_predict[safe_to_predict] = c
-            mu = probs[c][safe_to_predict].sum().item()
-            opt_tau_this_c = safe_to_predict.sum().item()
+            mu = probs[c][safe_to_predict].sum()
+            opt_tau_this_c = safe_to_predict.sum()
             if metric == 'dice':
                 increment_score[c] = 2 * ((mu + probs[c]) / (opt_tau_this_c + pb_mean[c] + 2 + smooth) - mu / (opt_tau_this_c + pb_mean[c] + 1 + smooth))
                 increment_score[c] += smooth * (1 / (opt_tau_this_c + pb_mean[c] + 1 + smooth) - 1 / (opt_tau_this_c + pb_mean[c] + smooth))
