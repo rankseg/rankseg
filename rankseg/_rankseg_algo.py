@@ -230,7 +230,7 @@ def rankseg_rma(
     smooth : float, default=0.0
         A smooth parameter in the Dice metric.
 
-    pruning_prob : float, default=0.1
+    pruning_prob : float, default=0.5
         The threshold for pruning, if all probabilities are less than `pruning_prob`, 
         we skip the class.
 
