@@ -24,7 +24,11 @@ Instead of using simple `thresholding` or `argmax` (which don't care about Dice/
 
 Explore RankSEG by reading our [documentation](https://rankseg.readthedocs.io/en/latest/).
 
-![image](./fig/rankseg.png)
+<!--![image](./fig/rankseg.png)-->
+
+<div align="center">
+  <img src="./fig/rankseg.png" width="90%" alt="RankSEG Overview">
+</div>
 
 ---
 

@@ -1,8 +1,6 @@
 <div align="center">
 
-# 🧩 RankSEG
-
-### 🚀 RankSEG: 无需重新训练即可提升分割指标
+# 🧩 RankSEG: 无需重新训练即可瞬间提升分割模型的 Dice/IoU 指标
 
 [![PyPI](https://badge.fury.io/py/rankseg.svg)](https://pypi.org/project/rankseg/)
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
@@ -18,19 +16,19 @@
 [![NeurIPS](https://img.shields.io/badge/NeurIPS-2025-black.svg)](https://openreview.net/pdf?id=4tRMm1JJhw)
 [![English Documentation](https://img.shields.io/badge/English-EN-blue)](./README.md)
 
-<br>
-
-**让您现有的分割模型在 Dice/IoU 指标上瞬间提升性能。**
-
 </div>
 
-**RankSEG** 是一个**即插即用**的后处理模块，可在推理过程中改善分割结果。它适用于**任何预训练的分割模型**（DeepLab, SegFormer, UPerNet 等），无需任何重新训练或微调。
-
-![image](./fig/demo.png)
+**RankSEG** 是一个**即插即用**的后处理模块，可在推理过程中改善分割结果。它适用于**任何预训练的概率输出分割模型**（SAM, DeepLab, SegFormer, UPerNet 等），无需任何重新训练或微调。
 
 不像使用简单的`阈值化`或`argmax`（这些方法不关心 Dice/IoU 分数），RankSEG 直接针对这些指标进行优化，从而为您提供更好的结果，而无需任何额外的训练。
 
 了解 RankSEG 的更多信息，请查看[我们的文档](https://rankseg.readthedocs.io/en/latest/)。
+
+<!--![image](./fig/rankseg.png)-->
+
+<div align="center">
+  <img src="./fig/rankseg.png" width="90%" alt="RankSEG Overview">
+</div>
 
 ---
 
