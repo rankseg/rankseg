@@ -24,15 +24,8 @@ Instead of using simple `thresholding` or `argmax` (which don't care about Dice/
 
 Explore RankSEG by reading our [documentation](https://rankseg.readthedocs.io/en/latest/).
 
-## Featured examples
+![image](./fig/rankseg.png)
 
-> Sharper boundaries and better detail preservation without retraining.
-
-![image](./fig/example1.jpeg)
-
-> More smooth textures (integrated with SAM)
-
-![image](./fig/SAM.png)
 ---
 
 ## ⚡ Quick Start
