@@ -1,8 +1,6 @@
 <div align="center">
 
-# 🧩 RankSEG
-
-### 🚀 RankSEG: Boost Segmentation Metrics without Retraining
+# 🧩 RankSEG: Improve your segmentation models performance in Dice/IoU metrics instantly
 
 [![PyPI](https://badge.fury.io/py/rankseg.svg)](https://pypi.org/project/rankseg/)
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
@@ -18,10 +16,6 @@
 [![NeurIPS](https://img.shields.io/badge/NeurIPS-2025-black.svg)](https://openreview.net/pdf?id=4tRMm1JJhw)
 [![中文文档](https://img.shields.io/badge/中文文档-CN-red)](./README_zh.md)
 
-<br>
-
-**Improve your existing segmentation models performance in Dice/IoU metrics instantly.**
-
 </div>
 
 **RankSEG** is a **plug-and-play** post-processing module that improves segmentation results during inference. It works with **ANY pre-trained prob-outcome segmentation model** (SAM, DeepLab, SegFormer, UPerNet, etc.) without any retraining or fine-tuning.
@@ -30,8 +24,15 @@ Instead of using simple `thresholding` or `argmax` (which don't care about Dice/
 
 Explore RankSEG by reading our [documentation](https://rankseg.readthedocs.io/en/latest/).
 
-![image](./fig/demo.png)
+## Featured examples
 
+> Sharper boundaries and better detail preservation without retraining.
+
+![image](./fig/example1.jpeg)
+
+> More smooth textures (integrated with SAM)
+
+![image](./fig/SAM.png)
 ---
 
 ## ⚡ Quick Start
