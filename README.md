@@ -27,7 +27,7 @@ Explore RankSEG by reading our [documentation](https://rankseg.readthedocs.io/en
 <!--![image](./fig/rankseg.png)-->
 
 <div align="center">
-  <img src="./fig/rankseg.png" width="90%" alt="RankSEG Overview">
+  <img src="./fig/rankseg.png" alt="RankSEG Overview">
 </div>
 
 ---
