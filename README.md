@@ -18,7 +18,7 @@
 [![NeurIPS](https://img.shields.io/badge/NeurIPS-2025-black.svg)](https://openreview.net/pdf?id=4tRMm1JJhw)
 
 
-[**Quick Start**](#⚡-quick-start) | [**Key Features**](#✨-key-features) | [**Benchmarks**](#📊-benchmarks) | [**Citation**](#🔗-citation) 
+[**Quick Start**](#-quick-start) | [**Key Features**](#-key-features) | [**Benchmarks**](#-benchmarks) | [**Citation**](#-citation) 
 </div>
 
 ---
@@ -34,8 +34,6 @@ Conventional methods use `argmax` or fixed `thresholding`, which are **not theor
   <p align="center"><b>Demo: RankSEG vs. Argmax on <i>fashn-human-parser</i></b></p>
   <img src="./fig/fashn-ai-fashn-human-parser.gif" alt="RankSEG vs Argmax Comparison" width="80%">
 </div>
-
----
 
 ## ⚡ Quick Start
 
@@ -65,7 +63,6 @@ preds = rankseg.predict(probs)
 > 💡 **Try it now:**
 > [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1c2znXP7_yt_9MrE75p-Ag82LHz-WfKq-?usp=sharing)
 
----
 
 ## ✨ Key Features
 
@@ -75,7 +72,6 @@ preds = rankseg.predict(probs)
 - **⚡ Real-time Inference**: Efficient `RMA` (Reciprocal Moment Approximation) solver.
 - **🧩 Versatile**: Supports semantic (multi-class) and binary (multi-label) tasks.
 
----
 
 ## 📊 Benchmarks
 
@@ -91,7 +87,6 @@ RankSEG delivers consistent gains across various architectures and datasets **wi
 
 *Detailed results available in our [NeurIPS 2025 paper](https://openreview.net/forum?id=4tRMm1JJhw).*
 
----
 
 ## 🛠️ Integrations & Demos
 
@@ -101,7 +96,6 @@ RankSEG delivers consistent gains across various architectures and datasets **wi
 | **Segment Anything (SAM)** | Zero-shot Segmentation | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1Gj-rG3ZnFN5OYTcgdJHfUuiSJtWVpgfu?usp=sharing) |
 | **Hugging Face** | Interactive Demo | [![Spaces](https://img.shields.io/badge/%F0%9F%A4%97-Spaces-blue)](https://huggingface.co/spaces/statmlben/rankseg) |
 
----
 
 ## 🔗 Citation
 
@@ -133,6 +127,7 @@ If you use RankSEG in your research, please cite our papers:
 ```
 
 ---
+
 <div align="center">
   <p>Star us on GitHub if RankSEG helps your project! ⭐</p>
 </div>
