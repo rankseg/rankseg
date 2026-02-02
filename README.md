@@ -2,7 +2,7 @@
 
 # 🧩 RankSEG
 
-### *Boost Segmentation Performance Instantly via Ranking-based Optimization*
+#### Boost Segmentation Performance Instantly via Direct Dice/IoU Post-Optimization
 
 [![PyPI](https://badge.fury.io/py/rankseg.svg)](https://pypi.org/project/rankseg/)
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
