@@ -1,6 +1,8 @@
 <div align="center">
 
-# 🧩 RankSEG: Improve your segmentation models performance in Dice/IoU metrics instantly
+# 🧩 RankSEG
+
+### *Boost Segmentation Performance Instantly via Ranking-based Optimization*
 
 [![PyPI](https://badge.fury.io/py/rankseg.svg)](https://pypi.org/project/rankseg/)
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
@@ -8,57 +10,55 @@
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org)
 [![GitHub Stars](https://img.shields.io/github/stars/rankseg/rankseg?style=social)](https://github.com/rankseg/rankseg)
 [![Documentation](https://img.shields.io/badge/docs-rankseg-brightgreen.svg)](https://rankseg.readthedocs.io/en/latest/)
-
 [![Hugging Face Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue)](https://huggingface.co/spaces/statmlben/rankseg)
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1c2znXP7_yt_9MrE75p-Ag82LHz-WfKq-?usp=sharing)
+[![中文文档](https://img.shields.io/badge/中文文档-CN-red)](./README_zh.md)
 
 [![JMLR](https://img.shields.io/badge/JMLR-v24|22.0712-black.svg)](https://www.jmlr.org/papers/v24/22-0712.html)
 [![NeurIPS](https://img.shields.io/badge/NeurIPS-2025-black.svg)](https://openreview.net/pdf?id=4tRMm1JJhw)
-[![中文文档](https://img.shields.io/badge/中文文档-CN-red)](./README_zh.md)
 
+
+[**Quick Start**](#⚡-quick-start) | [**Key Features**](#✨-key-features) | [**Benchmarks**](#📊-benchmarks) | [**Citation**](#🔗-citation) 
 </div>
 
-**RankSEG** is a **plug-and-play** post-processing module that improves segmentation results during inference. It works with **ANY pre-trained prob-outcome segmentation model** (SAM, DeepLab, SegFormer, UPerNet, etc.) without any retraining or fine-tuning.
+---
 
-Instead of using simple `thresholding` or `argmax` (which don't care about Dice/IoU scores), RankSEG directly optimizes for these metrics - giving you better results without any extra training.
+**RankSEG** is a **plug-and-play** post-processing module that boosts segmentation performance (Dice/IoU) during inference. It works with **ANY pre-trained probabilistic segmentation model** (SAM, DeepLab, SegFormer, etc.) without any retraining or fine-tuning.
 
 Explore RankSEG by reading our [documentation](https://rankseg.readthedocs.io/en/latest/).
 
-<!--![image](./fig/rankseg.png)-->
+### 🌟 Why RankSEG?
+Conventional methods use `argmax` or fixed `thresholding`, which are **not theoretically optimized** for non-decomposable metrics like Dice or IoU. RankSEG bridges this gap by directly optimizing the target metric, yielding "free" performance gains.
 
 <div align="center">
-  <img src="./fig/rankseg.png" alt="RankSEG Overview">
+  <p align="center"><b>Demo: RankSEG vs. Argmax on <i>fashn-human-parser</i></b></p>
+  <img src="./fig/fashn-ai-fashn-human-parser.gif" alt="RankSEG vs Argmax Comparison" width="80%">
 </div>
 
 ---
 
 ## ⚡ Quick Start
 
-Get started in seconds. RankSEG is designed to be dropped into your existing inference pipeline.
+RankSEG is designed to be dropped into your existing inference pipeline with just a few lines of code.
 
 ### 1. Installation
-
 ```bash
 pip install -U rankseg
 ```
 
-### 2. Optimize Predictions
-
-Add 3 lines of code to your inference loop:
-
+### 2. Basic Usage (3 Lines of Code)
 ```python
-import torch
-import torch.nn.functional as F
 from rankseg import RankSEG
+import torch.nn.functional as F
 
-# 1. Initialize RankSEG (optimizing for Dice score)
-rankseg = RankSEG(metric='dice', solver='RMA')
+# 1. Initialize RankSEG (optimizing for Dice)
+rankseg = RankSEG(metric='dice')
 
-# 2. Get your model's probability outputs (Batch, Class, Height, Width)
-# Example: probs = model(images).softmax(dim=1)
-probs = F.softmax(torch.randn(4, 21, 256, 256), dim=1)
+# 2. Get probability output from YOUR model
+# probs: (Batch, Class, H, W)
+probs = F.softmax(model_logits, dim=1)
 
-# 3. Get optimized predictions (No retraining needed!)
+# 3. Get optimized predictions (Instantly!)
 preds = rankseg.predict(probs)
 ```
 
@@ -69,55 +69,46 @@ preds = rankseg.predict(probs)
 
 ## ✨ Key Features
 
-- **🚀 Instant Metric Boost**: Consistently improves mIoU and mDice scores over standard `argmax`.
-- **🔌 Plug-and-Play**: Compatible with **any** PyTorch segmentation model.
-- **🆓 Training-Free**: Purely post-processing. No gradients, no backprop, no dataset needed.
-- **⚡ Efficient**: Optimized solvers (RMA) for real-time inference.
-- **🧩 Flexible**: Supports multi-class and multi-label segmentation.
+- **🚀 Performance Boost**: Consistently improves mIoU/mDice scores over standard `argmax`.
+- **🔌 Zero Effort**: Compatible with **any** PyTorch model. No retraining, no fine-tuning.
+- **🆓 Training-Free**: Purely post-processing. Works with frozen weights.
+- **⚡ Real-time Inference**: Efficient `RMA` (Reciprocal Moment Approximation) solver.
+- **🧩 Versatile**: Supports semantic (multi-class) and binary (multi-label) tasks.
 
 ---
 
-## 📊 Why RankSEG?
+## 📊 Benchmarks
 
-Standard segmentation methods use `argmax` or thresholding, which are **not optimized** for evaluation metrics like Dice or IoU. RankSEG solves this by directly optimizing the target metric during inference.
+RankSEG delivers consistent gains across various architectures and datasets **without touching a single weight**.
 
-**Performance Comparison (No Retraining):**
+| Model | Dataset | mIoU (Argmax) | mIoU (**RankSEG**) | Gain |
+| :--- | :--- | :---: | :---: | :---: |
+| **DeepLabV3+** | PASCAL VOC | 77.25% | **78.14%** | +0.89% |
+| **SegFormer** | PASCAL VOC | 77.57% | **78.59%** | +1.02% |
+| **UPerNet** | PASCAL VOC | 79.52% | **80.31%** | +0.79% |
+| **SegFormer** | ADE20K | 40.00% | **40.82%** | +0.82% |
+| **UPerNet** | ADE20K | 42.86% | **43.84%** | +0.98% |
 
-| Model | Dataset | mIoU (Argmax) | mIoU (RankSEG) | mDice (Argmax) | mDice (RankSEG) |
-|-------|---------|---------------|----------------|----------------|-----------------|
-| DeepLabV3+ (ResNet101) | PASCAL VOC | 77.25% | **78.14%** ↑0.89% | 82.08% | **83.14%** ↑1.06% |
-| SegFormer (MiT-B4) | PASCAL VOC | 77.57% | **78.59%** ↑1.02% | 82.15% | **83.22%** ↑1.07% |
-| UPerNet (ConvNeXt) | PASCAL VOC | 79.52% | **80.31%** ↑0.79% | 84.11% | **84.98%** ↑0.87% |
-| PSPNet (ResNet101) | Cityscapes | 65.89% | **66.53%** ↑0.64% | 73.55% | **74.28%** ↑0.73% |
-| DeepLabV3+ (ResNet101) | Cityscapes | 66.17% | **66.68%** ↑0.51% | 73.71% | **74.33%** ↑0.62% |
-| UPerNet (ConvNeXt) | Cityscapes | 68.83% | **69.57%** ↑0.74% | 76.08% | **76.97%** ↑0.89% |
-| SegFormer (MiT-B4) | ADE20K | 40.00% | **40.82%** ↑0.82% | 46.50% | **47.57%** ↑1.07% |
-| UPerNet (ConvNeXt) | ADE20K | 42.86% | **43.84%** ↑0.98% | 49.61% | **50.85%** ↑1.24% |
-
-*Results from our [NeurIPS 2025 paper](https://openreview.net/forum?id=4tRMm1JJhw).*
+*Detailed results available in our [NeurIPS 2025 paper](https://openreview.net/forum?id=4tRMm1JJhw).*
 
 ---
 
-## 🛠️ Integrations
+## 🛠️ Integrations & Demos
 
-RankSEG works out-of-the-box with any PyTorch-based segmentation framework.
+| Framework | Task | Try it Online |
+| :--- | :--- | :---: |
+| **Standard PyTorch** | Semantic Segmentation | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1c2znXP7_yt_9MrE75p-Ag82LHz-WfKq-?usp=sharing) |
+| **Segment Anything (SAM)** | Zero-shot Segmentation | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1Gj-rG3ZnFN5OYTcgdJHfUuiSJtWVpgfu?usp=sharing) |
+| **Hugging Face** | Interactive Demo | [![Spaces](https://img.shields.io/badge/%F0%9F%A4%97-Spaces-blue)](https://huggingface.co/spaces/statmlben/rankseg) |
 
-| Framework | Task | Integration Guide |
-| :--- | :--- | :--- |
-| **PyTorch (Native)** | Semantic Seg. | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1c2znXP7_yt_9MrE75p-Ag82LHz-WfKq-?usp=sharing) |
-| **SegmentAnything** | Semantic Seg. | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1Gj-rG3ZnFN5OYTcgdJHfUuiSJtWVpgfu?usp=sharing) |
-| **MMSegmentation** | Semantic Seg. | *Coming Soon* |
-| **PaddleSeg** | Semantic Seg. | *Coming Soon* |
-
-> **Note**: Don't see your favorite framework? Open an [issue](https://github.com/rankseg/rankseg/issues) or submit a PR!
-
+---
 
 ## 🔗 Citation
 
 If you use RankSEG in your research, please cite our papers:
 
-- Dai, B., & Li, C. (2023). RankSEG: A Consistent Ranking-based Framework for Segmentation. *Journal of Machine Learning Research*, **24**(224), 1-50. [[link]](https://www.jmlr.org/papers/v24/22-0712.html)
-- Wang, Z., & Dai, B. (2025). RankSEG-RMA: An Efficient Segmentation Algorithm via Reciprocal Moment Approximation. *Advances in Neural Information Processing Systems (NeurIPS 2025)*. [[link]](https://openreview.net/pdf?id=4tRMm1JJhw)
+> - Dai, B., & Li, C. (2023). RankSEG: A Consistent Ranking-based Framework for Segmentation. *Journal of Machine Learning Research*, **24**(224), 1-50. [[link]](https://www.jmlr.org/papers/v24/22-0712.html)
+> - Wang, Z., & Dai, B. (2025). RankSEG-RMA: An Efficient Segmentation Algorithm via Reciprocal Moment Approximation. *Advances in Neural Information Processing Systems (NeurIPS 2025)*. [[link]](https://openreview.net/pdf?id=4tRMm1JJhw)
 
 
 ```bibtex
@@ -141,11 +132,7 @@ If you use RankSEG in your research, please cite our papers:
 }
 ```
 
-## 🤝 Contributing
-
-We welcome contributions! Please feel free to submit issues or pull requests on our [GitHub repository](https://github.com/rankseg/rankseg).
-
+---
 <div align="center">
-  <br>
-  <p>If you find RankSEG useful, please give it a star! ⭐</p>
+  <p>Star us on GitHub if RankSEG helps your project! ⭐</p>
 </div>
