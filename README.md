@@ -90,11 +90,12 @@ RankSEG delivers consistent gains across various architectures and datasets **wi
 
 ## 🛠️ Integrations & Demos
 
-| Framework | Task | Try it Online |
+| Framework | Task | Quick Start |
 | :--- | :--- | :---: |
 | **Standard PyTorch** | Semantic Segmentation | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1c2znXP7_yt_9MrE75p-Ag82LHz-WfKq-?usp=sharing) |
 | **Segment Anything (SAM)** | Zero-shot Segmentation | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1Gj-rG3ZnFN5OYTcgdJHfUuiSJtWVpgfu?usp=sharing) |
 | **Hugging Face** | Interactive Demo | [![Spaces](https://img.shields.io/badge/%F0%9F%A4%97-Spaces-blue)](https://huggingface.co/spaces/statmlben/rankseg) |
+| **PaddleSeg** | [![Docs](https://img.shields.io/badge/docs-paddleseg-brightgreen?logo=paddlepaddle)](https://github.com/Leev1s/rankseg/tree/paddleseg/rankseg/paddleseg) | [![Docker](https://img.shields.io/badge/Docker-Enabled-blue?logo=docker)](https://ghcr.io/leev1s/rankseg) |
 
 
 ## 🔗 Citation

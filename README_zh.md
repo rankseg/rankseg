@@ -108,7 +108,7 @@ RankSEG 开箱即用，支持任何基于 PyTorch 的分割框架。
 | **PyTorch (Native)** | 语义分割 | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1c2znXP7_yt_9MrE75p-Ag82LHz-WfKq-?usp=sharing) |
 | **SegmentAnything** | 语义分割 | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1Gj-rG3ZnFN5OYTcgdJHfUuiSJtWVpgfu?usp=sharing) |
 | **MMSegmentation** | 语义分割 | *即将推出* |
-| **PaddleSeg** | 语义分割 | *即将推出* |
+| **PaddleSeg** | [![Docs](https://img.shields.io/badge/docs-paddleseg-brightgreen?logo=paddlepaddle)](https://github.com/Leev1s/rankseg/tree/paddleseg/rankseg/paddleseg) | [![Docker](https://img.shields.io/badge/Docker-Enabled-blue?logo=docker)](https://ghcr.io/leev1s/rankseg) |
 
 > **注意**：没看到您喜欢的框架？提交一个 [issue](https://github.com/rankseg/rankseg/issues) 或提交 PR！
 
