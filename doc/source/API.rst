@@ -31,4 +31,3 @@ Distribution Interface
 
    rankseg.RefinedNormalPB
    rankseg.RefinedNormal
-

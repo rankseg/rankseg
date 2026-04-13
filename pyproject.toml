@@ -1,0 +1,28 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = "--cov=rankseg --cov-report=term-missing --cov-report=xml"
+
+[tool.coverage.run]
+source = ["rankseg"]
+omit = ["tests/*"]
+
+[tool.coverage.report]
+show_missing = true
+precision = 2
+fail_under = 0
+
+[tool.coverage.xml]
+output = "coverage.xml"
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+
+[tool.ruff]
+line-length = 120
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501"]

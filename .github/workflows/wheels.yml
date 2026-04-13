@@ -1,6 +1,6 @@
 name: Build wheels
 
-on: 
+on:
   push:
     paths-ignore:
       - .gitignore
@@ -33,4 +33,3 @@ jobs:
         with:
           name: rankseg-dist
           path: dist/*
-

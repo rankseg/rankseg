@@ -6,7 +6,7 @@ __version__ = "0.0.4"
 
 # Read the contents of README file
 this_directory = os.path.abspath(os.path.dirname(__file__))
-with open(os.path.join(this_directory, 'README.md'), encoding='utf-8') as f:
+with open(os.path.join(this_directory, "README.md"), encoding="utf-8") as f:
     long_description = f.read()
 
 setup(
@@ -17,9 +17,13 @@ setup(
     url="https://rankseg.readthedocs.io/en/latest/",
     description="RankSEG: A Statistically Consistent Segmentation Prediction Solver for Dice and IoU Metrics Optimization",
     long_description=long_description,
-    long_description_content_type='text/markdown',
+    long_description_content_type="text/markdown",
     packages=["rankseg"],
     install_requires=["torch", "scipy", "numpy"],
+    extras_require={
+        "dev": ["pytest", "pytest-cov", "pre-commit", "commitizen", "torchmetrics"],
+        "test": ["pytest", "pytest-cov", "torchmetrics"],
+    },
     zip_safe=False,
     python_requires=">= 3.9",
     classifiers=[

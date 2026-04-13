@@ -18,7 +18,7 @@
 [![NeurIPS](https://img.shields.io/badge/NeurIPS-2025-black.svg)](https://openreview.net/pdf?id=4tRMm1JJhw)
 
 
-[**Quick Start**](#-quick-start) | [**Key Features**](#-key-features) | [**Benchmarks**](#-benchmarks) | [**Citation**](#-citation) 
+[**Quick Start**](#-quick-start) | [**Key Features**](#-key-features) | [**Benchmarks**](#-benchmarks) | [**Citation**](#-citation)
 </div>
 
 ---
