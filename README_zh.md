@@ -14,9 +14,11 @@
 
 [![JMLR](https://img.shields.io/badge/JMLR-v24|22.0712-black.svg)](https://www.jmlr.org/papers/v24/22-0712.html)
 [![NeurIPS](https://img.shields.io/badge/NeurIPS-2025-black.svg)](https://openreview.net/pdf?id=4tRMm1JJhw)
-[![English Documentation](https://img.shields.io/badge/English-EN-blue)](./README.md)
+[![English Documentation](https://img.shields.io/badge/English-EN-blue)](https://github.com/rankseg/rankseg/blob/main/README.md)
 
 </div>
+
+---
 
 **RankSEG** 是一个**即插即用**的后处理模块，可在推理过程中改善分割结果。它适用于**任何预训练的概率输出分割模型**（SAM, DeepLab, SegFormer, UPerNet 等），无需任何重新训练或微调。
 
@@ -30,11 +32,13 @@
   <img src="./fig/rankseg.png" alt="RankSEG Overview">
 </div>
 
----
+## 🌟 为什么选择 RankSEG?
+
+传统分割通常使用 `argmax` 或固定阈值，但这些方法并没有直接针对 Dice / IoU 等非可分解指标进行优化。RankSEG 在推理阶段直接优化目标指标，因此在不重训模型的情况下，往往可以获得“免费”的性能提升。
 
 ## ⚡ 快速开始
 
-几秒钟内即可上手。RankSEG 旨在直接嵌入您现有的推理流程中。
+RankSEG 可以直接插入现有的 PyTorch 分割推理流程中。
 
 ### 1. 安装
 
@@ -42,46 +46,60 @@
 pip install -U rankseg
 ```
 
-### 2. 优化预测
+### 2. 基本用法
 
-只需在您的推理循环中添加 3 行代码：
+![](https://raw.githubusercontent.com/rankseg/rankseg/main/fig/rankseg_workflow.svg)
 
 ```python
-import torch
-import torch.nn.functional as F
 from rankseg import RankSEG
+import torch.nn.functional as F
 
-# 1. 初始化 RankSEG (针对 Dice 分数进行优化)
-rankseg = RankSEG(metric='dice', solver='RMA')
+# 1. 使用官方默认配置初始化 RankSEG
+rankseg = RankSEG(metric="dice", solver="RMA", output_mode="multiclass")
 
-# 2. 获取模型的概率输出 (Batch, Class, Height, Width)
-# 示例: probs = model(images).softmax(dim=1)
-probs = F.softmax(torch.randn(4, 21, 256, 256), dim=1)
+# 2. 获取模型的概率输出
+# probs: (batch_size, num_classes, *image_shape)
+probs = F.softmax(model_logits, dim=1)
 
-# 3. 获取优化后的预测结果 (无需重新训练！)
+# 3. 获取优化后的预测结果
 preds = rankseg.predict(probs)
 ```
 
 > 💡 **立即尝试:**
 > [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1c2znXP7_yt_9MrE75p-Ag82LHz-WfKq-?usp=sharing)
+>
+> 官方 PyTorch 集成路径：
+> [Docs](https://rankseg.readthedocs.io/en/latest/integrations_pytorch.html) · [Example](https://github.com/rankseg/rankseg/blob/main/examples/pytorch_native_rankseg.py)
 
----
+## 🔌 官方集成路径
+
+这些是当前由本仓库维护的官方集成入口。
+
+| 路径 | 状态 | 入口 |
+| :--- | :---: | :--- |
+| **PyTorch Native** | **Ready** | [Docs](https://rankseg.readthedocs.io/en/latest/integrations_pytorch.html) · [Example](https://github.com/rankseg/rankseg/blob/main/examples/pytorch_native_rankseg.py) |
+| **Segment Anything (SAM)** | Planned | 官方集成指南编写中 |
+| **MMSegmentation** | Planned | 官方集成指南编写中 |
+
+## 🌐 外部集成路径
+
+以下集成已经存在，但当前主要由主仓库之外的实现维护。
+
+| 集成 | 状态 | 入口 |
+| :--- | :---: | :--- |
+| **PaddleSeg** | External | [Docs](https://rankseg.readthedocs.io/en/latest/integrations_paddleseg.html) · [Branch](https://github.com/Leev1s/rankseg/tree/paddleseg/rankseg/paddleseg) · [Docker](https://ghcr.io/leev1s/rankseg) |
 
 ## ✨ 主要特性
 
 - **🚀 指标瞬间提升**：相比标准的 `argmax`，持续提升 mIoU 和 mDice 分数。
-- **🔌 即插即用**：兼容**任何** PyTorch 分割模型。
+- **🔌 即插即用**：兼容**任何** PyTorch 分割模型。无需重训。
 - **🆓 无需训练**：纯后处理。无需梯度、无需反向传播、无需数据集。
-- **⚡ 高效**：优化的求解器 (RMA) 适用于实时推理。
+- **⚡ 高效默认路径**：推荐使用 `RMA` 作为默认推理求解器。
 - **🧩 灵活**：支持多类和多标签分割任务。
 
----
+## 📊 Benchmarks
 
-## 📊 为什么选择 RankSEG?
-
-标准的分割方法使用 `argmax` 或阈值，这些方法并没有针对 Dice 或 IoU 等评估指标进行**优化**。RankSEG 通过在推理过程中直接优化目标指标来解决这个问题。
-
-**性能对比 (无重新训练):**
+RankSEG 在不改动模型权重的情况下，能在多个模型和数据集上持续带来稳定增益。
 
 | 模型 | 数据集 | mIoU (Argmax) | mIoU (RankSEG) | mDice (Argmax) | mDice (RankSEG) |
 |-------|---------|---------------|----------------|----------------|-----------------|
@@ -97,22 +115,14 @@ preds = rankseg.predict(probs)
 
 *结果来自我们的 [NeurIPS 2025 论文](https://openreview.net/forum?id=4tRMm1JJhw)。*
 
----
+## 🧪 更多演示
 
-## 🛠️ 集成
+以下内容作为额外演示和扩展生态入口保留：
 
-RankSEG 开箱即用，支持任何基于 PyTorch 的分割框架。
-
-| 框架 | 任务 | 集成指南 |
+| 框架 | 任务 | 快速入口 |
 | :--- | :--- | :--- |
-| **PyTorch (Native)** | 语义分割 | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1c2znXP7_yt_9MrE75p-Ag82LHz-WfKq-?usp=sharing) |
 | **SegmentAnything** | 语义分割 | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1Gj-rG3ZnFN5OYTcgdJHfUuiSJtWVpgfu?usp=sharing) |
-| **MMSegmentation** | 语义分割 | *即将推出* |
-| **PaddleSeg** | [![Docs](https://img.shields.io/badge/docs-paddleseg-brightgreen?logo=paddlepaddle)](https://github.com/Leev1s/rankseg/tree/paddleseg/rankseg/paddleseg) | [![Docker](https://img.shields.io/badge/Docker-Enabled-blue?logo=docker)](https://ghcr.io/leev1s/rankseg) |
-
-> **注意**：没看到您喜欢的框架？提交一个 [issue](https://github.com/rankseg/rankseg/issues) 或提交 PR！
-
----
+| **Hugging Face** | 互动演示 | [![Spaces](https://img.shields.io/badge/%F0%9F%A4%97-Spaces-blue)](https://huggingface.co/spaces/statmlben/rankseg) |
 
 ## 🔗 引用
 

@@ -12,13 +12,13 @@
 [![Documentation](https://img.shields.io/badge/docs-rankseg-brightgreen.svg)](https://rankseg.readthedocs.io/en/latest/)
 [![Hugging Face Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue)](https://huggingface.co/spaces/statmlben/rankseg)
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1c2znXP7_yt_9MrE75p-Ag82LHz-WfKq-?usp=sharing)
-[![中文文档](https://img.shields.io/badge/中文文档-CN-red)](./README_zh.md)
+[![中文文档](https://img.shields.io/badge/中文文档-CN-red)](https://github.com/rankseg/rankseg/blob/main/README_zh.md)
 
 [![JMLR](https://img.shields.io/badge/JMLR-v24|22.0712-black.svg)](https://www.jmlr.org/papers/v24/22-0712.html)
 [![NeurIPS](https://img.shields.io/badge/NeurIPS-2025-black.svg)](https://openreview.net/pdf?id=4tRMm1JJhw)
 
 
-[**Quick Start**](#-quick-start) | [**Key Features**](#-key-features) | [**Benchmarks**](#-benchmarks) | [**Citation**](#-citation)
+[**Quick Start**](#-quick-start) | [**Official Integrations**](#-official-integrations) | [**Key Features**](#-key-features) | [**Benchmarks**](#-benchmarks) | [**Citation**](#-citation)
 </div>
 
 ---
@@ -32,36 +32,63 @@ Conventional methods use `argmax` or fixed `thresholding`, which are **not theor
 
 <div align="center">
   <p align="center"><b>Demo: RankSEG vs. Argmax on <i>fashn-human-parser</i></b></p>
-  <img src="./fig/fashn-ai-fashn-human-parser.gif" alt="RankSEG vs Argmax Comparison" width="80%">
+  <img src="https://raw.githubusercontent.com/rankseg/rankseg/main/fig/fashn-ai-fashn-human-parser.gif" alt="RankSEG vs Argmax Comparison" width="80%">
 </div>
 
 ## ⚡ Quick Start
 
-RankSEG is designed to be dropped into your existing inference pipeline with just a few lines of code.
+RankSEG is designed to drop into an existing PyTorch segmentation pipeline with just a few lines of code.
 
 ### 1. Installation
 ```bash
 pip install -U rankseg
 ```
 
-### 2. Basic Usage (3 Lines of Code)
+### 2. Basic Usage
+![](https://raw.githubusercontent.com/rankseg/rankseg/main/fig/rankseg_workflow.svg)
+
+### PyTorch Native Flow
+
 ```python
 from rankseg import RankSEG
 import torch.nn.functional as F
 
-# 1. Initialize RankSEG (optimizing for Dice)
-rankseg = RankSEG(metric='dice')
+# 1. Initialize RankSEG with the official default configuration
+rankseg = RankSEG(metric="dice", solver="RMA", output_mode="multiclass")
 
 # 2. Get probability output from YOUR model
-# probs: (Batch, Class, H, W)
+# probs: (batch_size, num_classes, *image_shape)
 probs = F.softmax(model_logits, dim=1)
 
-# 3. Get optimized predictions (Instantly!)
+# 3. Get optimized predictions
 preds = rankseg.predict(probs)
 ```
 
 > 💡 **Try it now:**
 > [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1c2znXP7_yt_9MrE75p-Ag82LHz-WfKq-?usp=sharing)
+>
+> Official PyTorch integration:
+> [Docs](https://rankseg.readthedocs.io/en/latest/integrations_pytorch.html) · [Example](https://github.com/rankseg/rankseg/blob/main/examples/pytorch_native_rankseg.py)
+
+
+## 🔌 Official Integrations
+
+These are the maintained integration entry points documented by this repository.
+
+| Path | Status | Entry |
+| :--- | :---: | :--- |
+| **PyTorch Native** | **Ready** | [Docs](https://rankseg.readthedocs.io/en/latest/integrations_pytorch.html) · [Example](https://github.com/rankseg/rankseg/blob/main/examples/pytorch_native_rankseg.py) |
+| **Segment Anything (SAM)** | Planned | Official integration guide in progress |
+| **MMSegmentation** | Planned | Official integration guide in progress |
+
+## 🌐 External Integrations
+
+These integrations already exist, but are currently maintained outside the main
+repository.
+
+| Integration | Status | Entry |
+| :--- | :---: | :--- |
+| **PaddleSeg** | External | [Docs](https://rankseg.readthedocs.io/en/latest/integrations_paddleseg.html) · [Branch](https://github.com/Leev1s/rankseg/tree/paddleseg/rankseg/paddleseg) · [Docker](https://ghcr.io/leev1s/rankseg) |
 
 
 ## ✨ Key Features
@@ -88,14 +115,12 @@ RankSEG delivers consistent gains across various architectures and datasets **wi
 *Detailed results available in our [NeurIPS 2025 paper](https://openreview.net/forum?id=4tRMm1JJhw).*
 
 
-## 🛠️ Integrations & Demos
+## 🧪 Additional Demos
 
 | Framework | Task | Quick Start |
 | :--- | :--- | :---: |
-| **Standard PyTorch** | Semantic Segmentation | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1c2znXP7_yt_9MrE75p-Ag82LHz-WfKq-?usp=sharing) |
 | **Segment Anything (SAM)** | Zero-shot Segmentation | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1Gj-rG3ZnFN5OYTcgdJHfUuiSJtWVpgfu?usp=sharing) |
 | **Hugging Face** | Interactive Demo | [![Spaces](https://img.shields.io/badge/%F0%9F%A4%97-Spaces-blue)](https://huggingface.co/spaces/statmlben/rankseg) |
-| **PaddleSeg** | [![Docs](https://img.shields.io/badge/docs-paddleseg-brightgreen?logo=paddlepaddle)](https://github.com/Leev1s/rankseg/tree/paddleseg/rankseg/paddleseg) | [![Docker](https://img.shields.io/badge/Docker-Enabled-blue?logo=docker)](https://ghcr.io/leev1s/rankseg) |
 
 
 ## 🔗 Citation

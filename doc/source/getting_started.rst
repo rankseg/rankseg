@@ -3,6 +3,18 @@ Getting Started
 
 RankSEG helps you get better segmentation masks from your models. It's a simple post-processing tool that improves your predictions during inference by using smart ranking methods, making your results more accurate for common segmentation metrics like Dice and IoU—without requiring any model retraining.
 
+Official Integration Paths
+--------------------------
+
+If you want the shortest route from an existing inference pipeline to RankSEG,
+start with the official integrations overview:
+
+- :doc:`integrations`
+
+The first maintained integration path is ``PyTorch Native``, which is the
+recommended starting point for users who already have a PyTorch semantic-
+segmentation model and want to replace ``argmax`` with RankSEG.
+
 Installation
 ------------
 

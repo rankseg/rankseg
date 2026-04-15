@@ -24,7 +24,7 @@ repos:
     hooks:
       - id: codespell
         additional_dependencies: [tomli]
-        args: [--skip, "*.so,*.cpp,*.h,*.zip,eigen-*,build,dist,.git"]
+        args: [--skip, "*.so,*.cpp,*.h,*.zip,*.svg,eigen-*,build,dist,.git"]
         exclude: ^(notebooks/|tests/memo/)
 
   - repo: https://github.com/commitizen-tools/commitizen

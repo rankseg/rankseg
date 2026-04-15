@@ -184,6 +184,12 @@ Learn More
 
       Learn how to use RankSEG with your segmentation models
 
+   .. grid-item-card:: 🔌 Official Integrations
+      :link: integrations
+      :link-type: doc
+
+      Maintained integration guides for PyTorch and future framework paths
+
    .. grid-item-card:: 📚 API Reference
       :link: API
       :link-type: doc
@@ -210,6 +216,7 @@ References
    :hidden:
 
    getting_started
+   integrations
    metrics
    citation
    API
