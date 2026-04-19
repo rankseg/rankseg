@@ -134,7 +134,7 @@ def restore_semantic_probs(outputs, *, model=None, target_sizes):
     raise ValueError("Unsupported outputs structure for semantic probability restoration.")
 
 
-def rankseg(outputs, *, model=None, target_sizes, rankseg_kwargs=None):
+def postprocess(outputs, *, model=None, target_sizes, rankseg_kwargs=None):
     if rankseg_kwargs is None:
         rankseg_kwargs = {}
     elif not isinstance(rankseg_kwargs, dict):
