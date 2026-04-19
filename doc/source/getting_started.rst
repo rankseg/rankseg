@@ -15,6 +15,9 @@ The first maintained integration path is ``PyTorch Native``, which is the
 recommended starting point for users who already have a PyTorch semantic-
 segmentation model and want to replace ``argmax`` with RankSEG.
 
+If you already run Hugging Face semantic-segmentation models through
+``processor -> model -> outputs``, start with :doc:`integrations_transformers`.
+
 Installation
 ------------
 

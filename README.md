@@ -72,6 +72,9 @@ preds = rankseg.predict(probs)
 >
 > Official PyTorch integration:
 > [Docs](https://rankseg.readthedocs.io/en/latest/integrations_pytorch.html) · [Example](https://github.com/rankseg/rankseg/blob/main/examples/pytorch_native_rankseg.py)
+>
+> Hugging Face Transformers integration:
+> [Notebook](./notebooks/rankseg_with_transformers.ipynb) · [Colab](https://colab.research.google.com/github/Leev1s/rankseg/blob/feat/transformers-adapter/notebooks/rankseg_with_transformers.ipynb)
 
 
 ## 🔌 Official Integrations
@@ -80,8 +83,8 @@ These are the maintained integration entry points documented by this repository.
 
 | Path | Status | Entry |
 | :--- | :---: | :--- |
-| **PyTorch Native** | **Ready** | [Docs](https://rankseg.readthedocs.io/en/latest/integrations_pytorch.html) · [Example](https://github.com/rankseg/rankseg/blob/main/examples/pytorch_native_rankseg.py) |
-| **Transformers** | Planned | Official integration guide in progress |
+| **PyTorch Native** | **Ready** | [Docs](https://rankseg.readthedocs.io/en/latest/integrations_pytorch.html) · [Example](./examples/pytorch_native_rankseg.py) |
+| **Transformers** | **Ready** | [Docs](https://rankseg.readthedocs.io/en/latest/integrations_transformers.html) · [Example](./examples/transformers_rankseg.py) |
 <!-- | **MMSegmentation** | Planned | Official integration guide in progress | -->
 
 ## 🌐 External Integrations
