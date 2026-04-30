@@ -72,7 +72,10 @@ preds = rankseg.predict(probs)
 > [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1c2znXP7_yt_9MrE75p-Ag82LHz-WfKq-?usp=sharing)
 >
 > 官方 PyTorch 集成路径：
-> [Docs](https://rankseg.readthedocs.io/en/latest/integrations_pytorch.html) · [Example](https://github.com/rankseg/rankseg/blob/main/examples/pytorch_native_rankseg.py)
+> [Docs](https://rankseg.readthedocs.io/en/latest/integrations_pytorch.html) · [Example](./examples/pytorch_native_rankseg.py)
+>
+> Transformers 集成路径：
+> [Notebook](./notebooks/rankseg_with_transformers.ipynb) · [Colab](https://colab.research.google.com/github/rankseg/rankseg/blob/main/notebooks/rankseg_with_transformers.ipynb)
 
 ## 🔌 官方集成路径
 
@@ -80,9 +83,8 @@ preds = rankseg.predict(probs)
 
 | 路径 | 状态 | 入口 |
 | :--- | :---: | :--- |
-| **PyTorch Native** | **Ready** | [Docs](https://rankseg.readthedocs.io/en/latest/integrations_pytorch.html) · [Example](https://github.com/rankseg/rankseg/blob/main/examples/pytorch_native_rankseg.py) |
-| **Segment Anything (SAM)** | Planned | 官方集成指南编写中 |
-| **MMSegmentation** | Planned | 官方集成指南编写中 |
+| **PyTorch Native** | **Ready** | [Docs](https://rankseg.readthedocs.io/en/latest/integrations_pytorch.html) · [Example](./examples/pytorch_native_rankseg.py) |
+| **Transformers** | **Ready** | [Docs](https://rankseg.readthedocs.io/en/latest/integrations_transformers.html) · [Example](./examples/transformers_rankseg.py) |
 
 ## 🌐 外部集成路径
 

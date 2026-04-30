@@ -188,7 +188,7 @@ Learn More
       :link: integrations
       :link-type: doc
 
-      Maintained integration guides for PyTorch and future framework paths
+      Maintained integration guides for PyTorch and Transformers
 
    .. grid-item-card:: 📚 API Reference
       :link: API

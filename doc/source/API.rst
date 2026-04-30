@@ -13,6 +13,8 @@ Module Interface
 .. autoapisummary::
 
    rankseg.RankSEG
+   rankseg.transformers.postprocess
+   rankseg.transformers.restore_semantic_probs
 
 
 Algorithms
