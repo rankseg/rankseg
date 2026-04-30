@@ -101,4 +101,4 @@ Notebook and Colab demo
 
 - Example script: `examples/transformers_rankseg.py <https://github.com/rankseg/rankseg/blob/main/examples/transformers_rankseg.py>`_
 - Notebook: `notebooks/rankseg_with_transformers.ipynb <https://github.com/rankseg/rankseg/blob/main/notebooks/rankseg_with_transformers.ipynb>`_
-- Colab: `Open the notebook in Colab <https://colab.research.google.com/github/Leev1s/rankseg/blob/feat/transformers-adapter/notebooks/rankseg_with_transformers.ipynb>`_
+- Colab: `Open the notebook in Colab <https://colab.research.google.com/github/rankseg/rankseg/blob/main/notebooks/rankseg_with_transformers.ipynb>`_

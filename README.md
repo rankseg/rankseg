@@ -74,7 +74,7 @@ preds = rankseg.predict(probs)
 > [Docs](https://rankseg.readthedocs.io/en/latest/integrations_pytorch.html) · [Example](https://github.com/rankseg/rankseg/blob/main/examples/pytorch_native_rankseg.py)
 >
 > Hugging Face Transformers integration:
-> [Notebook](./notebooks/rankseg_with_transformers.ipynb) · [Colab](https://colab.research.google.com/github/Leev1s/rankseg/blob/feat/transformers-adapter/notebooks/rankseg_with_transformers.ipynb)
+> [Notebook](./notebooks/rankseg_with_transformers.ipynb) · [Colab](https://colab.research.google.com/github/rankseg/rankseg/blob/main/notebooks/rankseg_with_transformers.ipynb)
 
 
 ## 🔌 Official Integrations
