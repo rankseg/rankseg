@@ -15,6 +15,7 @@ Module Interface
    rankseg.RankSEG
    rankseg.transformers.postprocess
    rankseg.transformers.restore_semantic_probs
+   rankseg.transformers.restore_sam_mask_probs
 
 
 Algorithms

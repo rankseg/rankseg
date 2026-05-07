@@ -126,7 +126,7 @@ RankSEG 在不改动模型权重的情况下，能在多个模型和数据集上
 
 | 框架 | 任务 | 快速入口 |
 | :--- | :--- | :--- |
-| **SegmentAnything** | 语义分割 | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1Gj-rG3ZnFN5OYTcgdJHfUuiSJtWVpgfu?usp=sharing) |
+| **SAM 系列** | SAM1、SAM2、SAM3 分割 | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/rankseg/rankseg/blob/main/notebooks/rankseg_with_sam_family.ipynb) |
 | **Hugging Face** | 互动演示 | [![Spaces](https://img.shields.io/badge/%F0%9F%A4%97-Spaces-blue)](https://huggingface.co/spaces/statmlben/rankseg) |
 
 ## 🔗 引用
