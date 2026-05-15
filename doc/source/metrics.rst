@@ -30,7 +30,7 @@ The **IoU** (Intersection over Union), also known as the Jaccard Index, measures
 The **per-image** level averaged IoU score for class :math:`c` across all samples :math:`i` is computed as:
 
 .. math::
-   \boxed{\text{IoU}_c = \frac{1}{n} \sum_{i=1}^{n} \frac{ \text{TP}_{ic} + \gamma}{\text{TP}_{ic} + \text{FP}_{ic} + \gamma} = \frac{1}{n} \sum_{i=1}^{n} \frac{|\hat{\mathbf{y}}_{ic} \cap \mathbf{y}_{ic}| + \gamma}{|\hat{\mathbf{y}}_{ic} \cup \mathbf{y}_{ic}| + \gamma}}
+   \boxed{\text{IoU}_c = \frac{1}{n} \sum_{i=1}^{n} \frac{ \text{TP}_{ic} + \gamma}{\text{TP}_{ic} + \text{FP}_{ic} + \text{FN}_{ic} + \gamma} = \frac{1}{n} \sum_{i=1}^{n} \frac{|\hat{\mathbf{y}}_{ic} \cap \mathbf{y}_{ic}| + \gamma}{|\hat{\mathbf{y}}_{ic} \cup \mathbf{y}_{ic}| + \gamma}}
 
 Where :math:`\text{TP}_{ic}` and :math:`\text{FP}_{ic}` denote the number of true positive and false positive pixels for class :math:`c` in sample :math:`i`, respectively.
 
