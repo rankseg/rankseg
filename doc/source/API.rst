@@ -13,9 +13,11 @@ Module Interface
 .. autoapisummary::
 
    rankseg.RankSEG
-   rankseg.transformers.postprocess
-   rankseg.transformers.restore_semantic_probs
-   rankseg.transformers.restore_sam_mask_probs
+   rankseg.integration.transformers.postprocess
+   rankseg.integration.transformers.restore_semantic_probs
+   rankseg.integration.sam.Sam1
+   rankseg.integration.sam.Sam2
+   rankseg.integration.sam.Sam3
 
 
 Algorithms

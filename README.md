@@ -73,8 +73,11 @@ preds = rankseg.predict(probs)
 > Official PyTorch integration:
 > [Docs](https://rankseg.readthedocs.io/en/latest/integrations_pytorch.html) · [Example](https://github.com/rankseg/rankseg/blob/main/examples/pytorch_native_rankseg.py)
 >
-> Hugging Face Transformers integration:
+> Hugging Face semantic segmentation integration:
 > [Notebook](./notebooks/rankseg_with_transformers.ipynb) · [Colab](https://colab.research.google.com/github/rankseg/rankseg/blob/main/notebooks/rankseg_with_transformers.ipynb)
+>
+> SAM family integration:
+> [Notebook](./notebooks/rankseg_with_sam_family.ipynb) · [Colab](https://colab.research.google.com/github/rankseg/rankseg/blob/main/notebooks/rankseg_with_sam_family.ipynb)
 
 
 ## 🔌 Official Integrations
@@ -84,7 +87,8 @@ These are the maintained integration entry points documented by this repository.
 | Path | Status | Entry |
 | :--- | :---: | :--- |
 | **PyTorch Native** | **Ready** | [Docs](https://rankseg.readthedocs.io/en/latest/integrations_pytorch.html) · [Example](./examples/pytorch_native_rankseg.py) |
-| **Transformers** | **Ready** | [Docs](https://rankseg.readthedocs.io/en/latest/integrations_transformers.html) · [Example](./examples/transformers_rankseg.py) |
+| **Hugging Face semantic segmentation** | **Ready** | `rankseg.integration.transformers.postprocess` · `restore_semantic_probs` · [Docs](https://rankseg.readthedocs.io/en/latest/integrations_transformers.html) · [Example](./examples/transformers_rankseg.py) |
+| **SAM family** | **Ready** | `rankseg.integration.sam.Sam1` · `Sam2` · `Sam3` · [Docs](https://rankseg.readthedocs.io/en/latest/integrations_sam.html) · [Notebook](./notebooks/rankseg_with_sam_family.ipynb) |
 <!-- | **MMSegmentation** | Planned | Official integration guide in progress | -->
 
 ## 🌐 External Integrations

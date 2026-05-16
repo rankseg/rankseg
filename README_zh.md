@@ -74,8 +74,11 @@ preds = rankseg.predict(probs)
 > 官方 PyTorch 集成路径：
 > [Docs](https://rankseg.readthedocs.io/en/latest/integrations_pytorch.html) · [Example](./examples/pytorch_native_rankseg.py)
 >
-> Transformers 集成路径：
+> Hugging Face 语义分割集成路径：
 > [Notebook](./notebooks/rankseg_with_transformers.ipynb) · [Colab](https://colab.research.google.com/github/rankseg/rankseg/blob/main/notebooks/rankseg_with_transformers.ipynb)
+>
+> SAM 系列集成路径：
+> [Notebook](./notebooks/rankseg_with_sam_family.ipynb) · [Colab](https://colab.research.google.com/github/rankseg/rankseg/blob/main/notebooks/rankseg_with_sam_family.ipynb)
 
 ## 🔌 官方集成路径
 
@@ -84,7 +87,8 @@ preds = rankseg.predict(probs)
 | 路径 | 状态 | 入口 |
 | :--- | :---: | :--- |
 | **PyTorch Native** | **Ready** | [Docs](https://rankseg.readthedocs.io/en/latest/integrations_pytorch.html) · [Example](./examples/pytorch_native_rankseg.py) |
-| **Transformers** | **Ready** | [Docs](https://rankseg.readthedocs.io/en/latest/integrations_transformers.html) · [Example](./examples/transformers_rankseg.py) |
+| **Hugging Face 语义分割** | **Ready** | `rankseg.integration.transformers.postprocess` · `restore_semantic_probs` · [Docs](https://rankseg.readthedocs.io/en/latest/integrations_transformers.html) · [Example](./examples/transformers_rankseg.py) |
+| **SAM 系列** | **Ready** | `rankseg.integration.sam.Sam1` · `Sam2` · `Sam3` · [Docs](https://rankseg.readthedocs.io/en/latest/integrations_sam.html) · [Notebook](./notebooks/rankseg_with_sam_family.ipynb) |
 
 ## 🌐 外部集成路径
 
