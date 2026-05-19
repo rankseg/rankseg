@@ -1,3 +1,10 @@
+"""Helpers for standard Hugging Face Transformers segmentation outputs.
+
+This module restores semantic probability maps from supported Transformers
+output objects and applies :class:`rankseg.RankSEG` as the final prediction
+step. SAM-family outputs are handled by :mod:`rankseg.integration.sam`.
+"""
+
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
@@ -135,6 +142,21 @@ def _rankseg_kwargs(rankseg_kwargs, *, default_output_mode: str) -> dict:
 
 
 def restore_semantic_probs(outputs, *, model=None, target_sizes=None) -> list[torch.Tensor]:
+    """Restore per-image semantic probability maps from supported outputs.
+
+    :param outputs: Structured model output with fields such as ``logits``,
+        ``semantic_seg``, ``class_queries_logits``, or ``masks_queries_logits``.
+    :param model: Optional Transformers model instance used for
+        model-family-specific restoration.
+    :param target_sizes: Optional list or tensor with one ``(height, width)``
+        pair per batch item. If omitted, probabilities keep the model output
+        spatial size.
+    :returns: One ``(C, H, W)`` probability tensor per input image.
+    :raises ValueError: If the output structure is unsupported or belongs to a
+        SAM-family model.
+    :raises TypeError: If expected output fields are not tensors.
+    """
+
     _reject_sam_outputs(outputs)
 
     semantic_seg = _get_output_value(outputs, "semantic_seg")
@@ -203,5 +225,18 @@ def restore_semantic_probs(outputs, *, model=None, target_sizes=None) -> list[to
 
 
 def postprocess(outputs, *, model=None, target_sizes=None, rankseg_kwargs=None) -> list[torch.Tensor]:
+    """Convert supported Transformers outputs into RankSEG predictions.
+
+    :param outputs: Structured model output returned by a supported
+        Transformers semantic segmentation model.
+    :param model: Optional Transformers model instance used by
+        :func:`restore_semantic_probs`.
+    :param target_sizes: Optional list or tensor with one ``(height, width)``
+        pair per batch item.
+    :param rankseg_kwargs: Optional keyword arguments forwarded to
+        :class:`rankseg.RankSEG`. ``output_mode`` is inferred when omitted.
+    :returns: One prediction tensor per input image.
+    """
+
     probs = restore_semantic_probs(outputs, model=model, target_sizes=target_sizes)
     return _predict_probs(probs, rankseg_kwargs)

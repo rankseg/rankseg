@@ -13,6 +13,13 @@ Module Interface
 .. autoapisummary::
 
    rankseg.RankSEG
+
+
+Integration Interface
+=====================
+
+.. autoapisummary::
+
    rankseg.integration.transformers.postprocess
    rankseg.integration.transformers.restore_semantic_probs
    rankseg.integration.sam.Sam1
@@ -36,3 +43,9 @@ Distribution Interface
 
    rankseg.RefinedNormalPB
    rankseg.RefinedNormal
+
+
+.. toctree::
+   :hidden:
+
+   autoapi/rankseg/rankseg/index

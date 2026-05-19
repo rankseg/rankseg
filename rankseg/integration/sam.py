@@ -1,3 +1,10 @@
+"""Adapters for SAM-family outputs from Hugging Face Transformers.
+
+SAM models expose family-specific output geometry, so this module uses explicit
+adapter classes instead of the generic Transformers semantic segmentation
+helper.
+"""
+
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
@@ -160,11 +167,31 @@ def _predict_semantic_mask_probs(mask_probs, rankseg_kwargs):
 
 
 class Sam1:
+    """Adapter for SAM1 and SAM-HQ prompt mask outputs.
+
+    :param rankseg_kwargs: Optional keyword arguments forwarded to
+        :class:`rankseg.RankSEG`.
+    :param pad_size: Optional padded model input size as ``(height, width)`` or
+        ``{"height": h, "width": w}``. Defaults to ``1024 x 1024``.
+    """
+
     def __init__(self, *, rankseg_kwargs=None, pad_size=None):
         self.rankseg_kwargs = rankseg_kwargs
         self.pad_size = pad_size
 
     def restore_mask_probs(self, outputs, *, original_sizes, reshaped_input_sizes) -> list[torch.Tensor]:
+        """Restore SAM1 prompt mask probabilities to original image sizes.
+
+        :param outputs: ``SamImageSegmentationOutput`` or
+            ``SamHQImageSegmentationOutput`` with ``pred_masks`` and
+            ``iou_scores`` fields.
+        :param original_sizes: One original ``(height, width)`` size per batch
+            item.
+        :param reshaped_input_sizes: One reshaped input ``(height, width)`` size
+            per batch item before padding.
+        :returns: Restored mask probability tensors for each batch item.
+        """
+
         _require_output_class(outputs, {"SamHQImageSegmentationOutput", "SamImageSegmentationOutput"}, "SAM1")
         pred_masks = _require_prompt_outputs(outputs, "SAM1")
         original_sizes = _normalize_size_list(original_sizes, pred_masks.shape[0], "original_sizes")
@@ -181,6 +208,8 @@ class Sam1:
         return output_masks
 
     def postprocess(self, outputs, *, original_sizes, reshaped_input_sizes):
+        """Restore SAM1 mask probabilities and convert them to predictions."""
+
         mask_probs = self.restore_mask_probs(
             outputs,
             original_sizes=original_sizes,
@@ -190,11 +219,28 @@ class Sam1:
 
 
 class Sam2:
+    """Adapter for SAM2 prompt mask outputs.
+
+    :param rankseg_kwargs: Optional keyword arguments forwarded to
+        :class:`rankseg.RankSEG`.
+    :param apply_non_overlapping_constraints: Whether to suppress lower-scoring
+        overlapping masks before converting logits to probabilities.
+    """
+
     def __init__(self, *, rankseg_kwargs=None, apply_non_overlapping_constraints=False):
         self.rankseg_kwargs = rankseg_kwargs
         self.apply_non_overlapping_constraints = apply_non_overlapping_constraints
 
     def restore_mask_probs(self, outputs, *, original_sizes) -> list[torch.Tensor]:
+        """Restore SAM2 prompt mask probabilities to original image sizes.
+
+        :param outputs: ``Sam2ImageSegmentationOutput`` with ``pred_masks`` and
+            ``iou_scores`` fields.
+        :param original_sizes: One original ``(height, width)`` size per batch
+            item.
+        :returns: Restored mask probability tensors for each batch item.
+        """
+
         _require_output_class(outputs, {"Sam2ImageSegmentationOutput"}, "SAM2")
         pred_masks = _require_prompt_outputs(outputs, "SAM2")
         original_sizes = _normalize_size_list(original_sizes, pred_masks.shape[0], "original_sizes")
@@ -209,11 +255,21 @@ class Sam2:
         return output_masks
 
     def postprocess(self, outputs, *, original_sizes):
+        """Restore SAM2 mask probabilities and convert them to predictions."""
+
         mask_probs = self.restore_mask_probs(outputs, original_sizes=original_sizes)
         return _predict_mask_probs(mask_probs, self.rankseg_kwargs)
 
 
 class Sam3:
+    """Adapter for SAM3 instance and semantic mask outputs.
+
+    :param rankseg_kwargs: Optional keyword arguments forwarded to
+        :class:`rankseg.RankSEG`.
+    :param threshold: Minimum instance confidence used by
+        :meth:`restore_instance_mask_probs`.
+    """
+
     def __init__(self, *, rankseg_kwargs=None, threshold=0.3):
         self.rankseg_kwargs = rankseg_kwargs
         self.threshold = threshold
@@ -225,6 +281,17 @@ class Sam3:
         target_sizes=None,
         original_sizes=None,
     ) -> list[dict[str, torch.Tensor]]:
+        """Restore SAM3 instance masks, boxes, and scores.
+
+        :param outputs: ``Sam3ImageSegmentationOutput`` or
+            ``Sam3LiteTextImageSegmentationOutput`` with instance mask fields.
+        :param target_sizes: Optional output ``(height, width)`` sizes. Used in
+            preference to ``original_sizes`` when both are provided.
+        :param original_sizes: Optional fallback output sizes.
+        :returns: Per-image dictionaries with ``scores``, ``boxes``, and
+            ``mask_probs`` tensors.
+        """
+
         _require_output_class(
             outputs,
             {"Sam3ImageSegmentationOutput", "Sam3LiteTextImageSegmentationOutput"},
@@ -274,6 +341,16 @@ class Sam3:
         return results
 
     def restore_semantic_mask_probs(self, outputs, *, target_sizes=None, original_sizes=None) -> list[torch.Tensor]:
+        """Restore SAM3 semantic mask probabilities.
+
+        :param outputs: ``Sam3ImageSegmentationOutput`` or
+            ``Sam3LiteTextImageSegmentationOutput`` with ``semantic_seg``.
+        :param target_sizes: Optional output ``(height, width)`` sizes. Used in
+            preference to ``original_sizes`` when both are provided.
+        :param original_sizes: Optional fallback output sizes.
+        :returns: One semantic probability tensor per input image.
+        """
+
         _require_output_class(
             outputs,
             {"Sam3ImageSegmentationOutput", "Sam3LiteTextImageSegmentationOutput"},
@@ -302,6 +379,8 @@ class Sam3:
         ]
 
     def postprocess_instance(self, outputs, *, target_sizes=None, original_sizes=None):
+        """Restore SAM3 instance probabilities and convert masks to predictions."""
+
         mask_probs = self.restore_instance_mask_probs(
             outputs,
             target_sizes=target_sizes,
@@ -310,6 +389,8 @@ class Sam3:
         return _predict_instance_mask_probs(mask_probs, self.rankseg_kwargs)
 
     def postprocess_semantic(self, outputs, *, target_sizes=None, original_sizes=None):
+        """Restore SAM3 semantic probabilities and convert them to predictions."""
+
         mask_probs = self.restore_semantic_mask_probs(
             outputs,
             target_sizes=target_sizes,

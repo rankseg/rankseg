@@ -1,3 +1,5 @@
+"""First-party integration helpers for external segmentation model outputs."""
+
 from .sam import Sam1, Sam2, Sam3
 from .transformers import postprocess, restore_semantic_probs
 
