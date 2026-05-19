@@ -87,8 +87,8 @@ These are the maintained integration entry points documented by this repository.
 | Path | Status | Entry |
 | :--- | :---: | :--- |
 | **PyTorch Native** | **Ready** | [Docs](https://rankseg.readthedocs.io/en/latest/integrations_pytorch.html) · [Example](./examples/pytorch_native_rankseg.py) |
-| **Hugging Face semantic segmentation** | **Ready** | `rankseg.integration.transformers.postprocess` · `restore_semantic_probs` · [Docs](https://rankseg.readthedocs.io/en/latest/integrations_transformers.html) · [Example](./examples/transformers_rankseg.py) |
-| **SAM family** | **Ready** | `rankseg.integration.sam.Sam1` · `Sam2` · `Sam3` · [Docs](https://rankseg.readthedocs.io/en/latest/integrations_sam.html) · [Notebook](./notebooks/rankseg_with_sam_family.ipynb) |
+| **Hugging Face semantic segmentation** | **Ready** | `from rankseg.integration import transformers` -> `transformers.postprocess` / `transformers.restore_semantic_probs` · [Docs](https://rankseg.readthedocs.io/en/latest/integrations_transformers.html) · [Example](./examples/transformers_rankseg.py) |
+| **SAM family** | **Ready** | `from rankseg.integration import sam` -> `sam.Sam1` / `sam.Sam2` / `sam.Sam3` · [Docs](https://rankseg.readthedocs.io/en/latest/integrations_sam.html) · [Notebook](./notebooks/rankseg_with_sam_family.ipynb) |
 <!-- | **MMSegmentation** | Planned | Official integration guide in progress | -->
 
 ## 🌐 External Integrations

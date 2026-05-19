@@ -10,13 +10,13 @@ final ``argmax``-style decision step.
 
 .. code-block:: python
 
-   from rankseg.integration.transformers import postprocess
+   from rankseg.integration import transformers
 
 The main helper is:
 
 .. code-block:: python
 
-   postprocess(
+   transformers.postprocess(
        outputs,
        *,
        model=None,
@@ -39,7 +39,7 @@ integration change happens after ``outputs = model(**inputs)``.
 .. code-block:: python
 
    from transformers import SegformerImageProcessor, AutoModelForSemanticSegmentation
-   from rankseg.integration.transformers import postprocess
+   from rankseg.integration import transformers
    from PIL import Image
    import requests
 
@@ -50,34 +50,41 @@ integration change happens after ``outputs = model(**inputs)``.
    inputs = processor(images=image, return_tensors="pt")
    outputs = model(**inputs)
 
-   preds = postprocess(
+   preds = transformers.postprocess(
        outputs,
        target_sizes=[image.size[::-1]],
        rankseg_kwargs={"metric": "dice"},
    )
 
-For supported output families, ``postprocess(...)`` preserves the surrounding
-Hugging Face inference code and replaces only the final prediction decision.
-SAM-family outputs are intentionally handled by
-``rankseg.integration.sam.Sam1``, ``Sam2``, or ``Sam3`` instead of this helper.
+For supported output families, ``transformers.postprocess(...)`` preserves the
+surrounding Hugging Face inference code and replaces only the final prediction
+decision. SAM-family outputs are intentionally handled by ``sam.Sam1``,
+``sam.Sam2``, or ``sam.Sam3`` after ``from rankseg.integration import sam``
+instead of this helper.
 
 Advanced probability helper
 ---------------------------
 
-The module also exposes:
+The namespace also exposes:
 
 .. code-block:: python
 
-   from rankseg.integration.transformers import restore_semantic_probs
+   from rankseg.integration import transformers
 
-``restore_semantic_probs(...)`` returns restored semantic probability maps
-directly as a per-image list of ``(C, H, W)`` tensors. Use it when you need
-probability tensors instead of final RankSEG predictions.
+``transformers.restore_semantic_probs(...)`` returns restored semantic
+probability maps directly as a per-image list of ``(C, H, W)`` tensors. Use it
+when you need probability tensors instead of final RankSEG predictions.
 
 Pass ``target_sizes`` as one ``(height, width)`` entry per batch item, for
 example ``target_sizes=[image.size[::-1]]`` for a single PIL image.
-``postprocess(...)`` follows the same per-image list convention for prediction
-outputs.
+``transformers.postprocess(...)`` follows the same per-image list convention
+for prediction outputs.
+
+Explicit helper imports are also supported when you prefer shorter local names:
+
+.. code-block:: python
+
+   from rankseg.integration.transformers import postprocess, restore_semantic_probs
 
 Supported output families
 -------------------------
