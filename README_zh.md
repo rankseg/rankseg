@@ -74,8 +74,11 @@ preds = rankseg.predict(probs)
 > 官方 PyTorch 集成路径：
 > [Docs](https://rankseg.readthedocs.io/en/latest/integrations_pytorch.html) · [Example](./examples/pytorch_native_rankseg.py)
 >
-> Transformers 集成路径：
+> Hugging Face 语义分割集成路径：
 > [Notebook](./notebooks/rankseg_with_transformers.ipynb) · [Colab](https://colab.research.google.com/github/rankseg/rankseg/blob/main/notebooks/rankseg_with_transformers.ipynb)
+>
+> SAM 系列集成路径：
+> [Notebook](./notebooks/rankseg_with_sam_family.ipynb) · [Colab](https://colab.research.google.com/github/rankseg/rankseg/blob/main/notebooks/rankseg_with_sam_family.ipynb)
 
 ## 🔌 官方集成路径
 
@@ -84,7 +87,8 @@ preds = rankseg.predict(probs)
 | 路径 | 状态 | 入口 |
 | :--- | :---: | :--- |
 | **PyTorch Native** | **Ready** | [Docs](https://rankseg.readthedocs.io/en/latest/integrations_pytorch.html) · [Example](./examples/pytorch_native_rankseg.py) |
-| **Transformers** | **Ready** | [Docs](https://rankseg.readthedocs.io/en/latest/integrations_transformers.html) · [Example](./examples/transformers_rankseg.py) |
+| **Hugging Face 语义分割** | **Ready** | `from rankseg.integration import transformers` -> `transformers.postprocess` / `transformers.restore_semantic_probs` · [Docs](https://rankseg.readthedocs.io/en/latest/integrations_transformers.html) · [Example](./examples/transformers_rankseg.py) |
+| **SAM 系列** | **Ready** | `from rankseg.integration import sam` -> `sam.Sam1` / `sam.Sam2` / `sam.Sam3` · [Docs](https://rankseg.readthedocs.io/en/latest/integrations_sam.html) · [Notebook](./notebooks/rankseg_with_sam_family.ipynb) |
 
 ## 🌐 外部集成路径
 
@@ -126,7 +130,7 @@ RankSEG 在不改动模型权重的情况下，能在多个模型和数据集上
 
 | 框架 | 任务 | 快速入口 |
 | :--- | :--- | :--- |
-| **SegmentAnything** | 语义分割 | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1Gj-rG3ZnFN5OYTcgdJHfUuiSJtWVpgfu?usp=sharing) |
+| **SAM 系列** | SAM1、SAM2、SAM3 分割 | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/rankseg/rankseg/blob/main/notebooks/rankseg_with_sam_family.ipynb) |
 | **Hugging Face** | 互动演示 | [![Spaces](https://img.shields.io/badge/%F0%9F%A4%97-Spaces-blue)](https://huggingface.co/spaces/statmlben/rankseg) |
 
 ## 🔗 引用

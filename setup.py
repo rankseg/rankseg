@@ -1,6 +1,6 @@
 import os
 
-from setuptools import setup
+from setuptools import find_packages, setup
 
 __version__ = "0.0.4"
 
@@ -18,7 +18,7 @@ setup(
     description="RankSEG: A Statistically Consistent Segmentation Prediction Solver for Dice and IoU Metrics Optimization",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    packages=["rankseg"],
+    packages=find_packages(include=["rankseg", "rankseg.*"]),
     install_requires=["torch", "scipy", "numpy"],
     extras_require={
         "dev": ["pytest", "pytest-cov", "pre-commit", "commitizen", "torchmetrics"],

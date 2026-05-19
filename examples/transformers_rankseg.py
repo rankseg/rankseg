@@ -6,7 +6,7 @@ Hugging Face semantic-segmentation inference pipeline.
 Typical workflow:
 1. Load a segmentation processor and model from `transformers`.
 2. Run the usual `processor -> model -> outputs` inference path.
-3. Replace manual post-processing with `rankseg.transformers.postprocess`.
+3. Replace manual post-processing with `transformers.postprocess`.
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ import torch.nn.functional as F
 from PIL import Image
 from transformers import AutoModelForSemanticSegmentation, SegformerImageProcessor
 
-from rankseg.transformers import postprocess
+from rankseg.integration import transformers
 
 
 def predict_with_rankseg(
@@ -27,9 +27,9 @@ def predict_with_rankseg(
     metric: str = "dice",
 ):
     """Post-process Hugging Face segmentation outputs with RankSEG."""
-    return postprocess(
+    return transformers.postprocess(
         outputs,
-        target_sizes=image_size[::-1],
+        target_sizes=[image_size[::-1]],
         rankseg_kwargs={"metric": metric},
     )
 
@@ -64,8 +64,9 @@ def main() -> None:
     print("Integration summary:")
     print("- Keep the standard Hugging Face processor and model unchanged.")
     print("- Run the usual processor -> model -> outputs inference path.")
-    print("- Replace manual argmax post-processing with rankseg.transformers.postprocess(...).")
-    print("- Pass target_sizes as the original image size in (H, W) order.")
+    print("- Import with: from rankseg.integration import transformers")
+    print("- Replace manual argmax post-processing with transformers.postprocess(...).")
+    print("- Pass target_sizes as one original (H, W) size per batch item.")
 
     fig, axes = plt.subplots(1, 3, figsize=(15, 5))
     axes[0].imshow(image)

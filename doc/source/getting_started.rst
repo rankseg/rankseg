@@ -17,6 +17,7 @@ segmentation model and want to replace ``argmax`` with RankSEG.
 
 If you already run Hugging Face semantic-segmentation models through
 ``processor -> model -> outputs``, start with :doc:`integrations_transformers`.
+For SAM-family outputs, start with :doc:`integrations_sam`.
 
 Installation
 ------------

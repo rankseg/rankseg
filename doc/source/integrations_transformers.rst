@@ -1,28 +1,32 @@
 Transformers
 ============
 
-This page documents the official RankSEG integration path for Hugging Face
+This page documents the RankSEG integration path for standard Hugging Face
 ``transformers`` semantic-segmentation outputs.
 
-If you already run inference manually through a ``processor -> model ->
-outputs`` workflow, this is the recommended entry point.
-
-Recommended entry point
------------------------
+Use this path when you already run inference through a standard
+``processor -> model -> outputs`` workflow and want RankSEG to replace the
+final ``argmax``-style decision step.
 
 .. code-block:: python
 
-   from rankseg.transformers import postprocess
+   from rankseg.integration import transformers
 
 The main helper is:
 
 .. code-block:: python
 
-   postprocess(outputs, *, model=None, target_sizes, rankseg_kwargs=None)
+   transformers.postprocess(
+       outputs,
+       *,
+       model=None,
+       target_sizes=None,
+       rankseg_kwargs=None,
+   )
 
 Its role is intentionally narrow:
 
-- restore semantic probabilities from supported Hugging Face output families;
+- restore probabilities from supported Hugging Face output families;
 - resize them to the original image size when needed;
 - apply ``RankSEG`` as the final post-processing step.
 
@@ -35,7 +39,7 @@ integration change happens after ``outputs = model(**inputs)``.
 .. code-block:: python
 
    from transformers import SegformerImageProcessor, AutoModelForSemanticSegmentation
-   from rankseg.transformers import postprocess
+   from rankseg.integration import transformers
    from PIL import Image
    import requests
 
@@ -46,34 +50,47 @@ integration change happens after ``outputs = model(**inputs)``.
    inputs = processor(images=image, return_tensors="pt")
    outputs = model(**inputs)
 
-   preds = postprocess(
+   preds = transformers.postprocess(
        outputs,
-       target_sizes=image.size[::-1],
+       target_sizes=[image.size[::-1]],
        rankseg_kwargs={"metric": "dice"},
    )
 
-For supported output families, ``postprocess(...)`` replaces the final
-``argmax``-style decision step while preserving the surrounding Hugging Face
-inference code.
+For supported output families, ``transformers.postprocess(...)`` preserves the
+surrounding Hugging Face inference code and replaces only the final prediction
+decision. SAM-family outputs are intentionally handled by ``sam.Sam1``,
+``sam.Sam2``, or ``sam.Sam3`` after ``from rankseg.integration import sam``
+instead of this helper.
 
-Low-level helper
-----------------
+Advanced probability helper
+---------------------------
 
-The module also exposes:
+The namespace also exposes:
 
 .. code-block:: python
 
-   from rankseg.transformers import restore_semantic_probs
+   from rankseg.integration import transformers
 
-``restore_semantic_probs(...)`` is a lower-level helper for users who want the
-restored semantic probability map directly. It may be imported and used
-directly, but it is not the primary recommended API.
+``transformers.restore_semantic_probs(...)`` returns restored semantic
+probability maps directly as a per-image list of ``(C, H, W)`` tensors. Use it
+when you need probability tensors instead of final RankSEG predictions.
+
+Pass ``target_sizes`` as one ``(height, width)`` entry per batch item, for
+example ``target_sizes=[image.size[::-1]]`` for a single PIL image.
+``transformers.postprocess(...)`` follows the same per-image list convention
+for prediction outputs.
+
+Explicit helper imports are also supported when you prefer shorter local names:
+
+.. code-block:: python
+
+   from rankseg.integration.transformers import postprocess, restore_semantic_probs
 
 Supported output families
 -------------------------
 
-The current helper supports the main semantic-segmentation output families used
-by ``transformers``:
+The standard Transformers helper supports the main semantic-segmentation
+output families used by ``transformers``:
 
 - ``outputs.logits``
 - ``outputs.class_queries_logits`` + ``outputs.masks_queries_logits``
@@ -88,6 +105,8 @@ Current exclusions
 
 The simplified API does not currently support:
 
+- SAM-family outputs, which use the explicit adapters in
+  ``rankseg.integration.sam``;
 - outputs with ``patch_offsets`` that require official patch-merge logic;
 - tuple-style outputs such as ``return_dict=False`` returns;
 - custom unstructured outputs from ``trust_remote_code=True`` models;
@@ -95,10 +114,3 @@ The simplified API does not currently support:
 
 These cases should fail explicitly rather than silently using an incorrect
 semantic restoration path.
-
-Notebook and Colab demo
------------------------
-
-- Example script: `examples/transformers_rankseg.py <https://github.com/rankseg/rankseg/blob/main/examples/transformers_rankseg.py>`_
-- Notebook: `notebooks/rankseg_with_transformers.ipynb <https://github.com/rankseg/rankseg/blob/main/notebooks/rankseg_with_transformers.ipynb>`_
-- Colab: `Open the notebook in Colab <https://colab.research.google.com/github/rankseg/rankseg/blob/main/notebooks/rankseg_with_transformers.ipynb>`_

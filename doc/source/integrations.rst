@@ -13,6 +13,7 @@ Available integrations
 
    integrations_pytorch
    integrations_transformers
+   integrations_sam
    integrations_paddleseg
 
 Guiding principle
@@ -24,6 +25,6 @@ framework they already use.
 Solver details such as ``RMA`` remain part of the recommended configuration
 inside each integration page, rather than the top-level navigation label.
 
-At the moment, ``PyTorch Native`` and ``Transformers`` are the first-party
-maintained entry points documented here, while ``PaddleSeg`` is provided as an
-external/community-maintained path.
+At the moment, ``PyTorch Native``, ``Transformers``, and ``SAM Family`` are
+the first-party maintained entry points documented here, while ``PaddleSeg`` is
+provided as an external/community-maintained path.
