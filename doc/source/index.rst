@@ -190,6 +190,12 @@ Learn More
 
       Maintained integration guides for PyTorch, Transformers, and SAM
 
+   .. grid-item-card:: 📓 Executable Notebooks
+      :link: notebooks
+      :link-type: doc
+
+      Notebook tutorials for quickstart, Transformers, SAM, and PaddleSeg
+
    .. grid-item-card:: 📚 API Reference
       :link: API
       :link-type: doc
@@ -217,6 +223,7 @@ References
 
    getting_started
    integrations
+   notebooks
    metrics
    citation
    API
