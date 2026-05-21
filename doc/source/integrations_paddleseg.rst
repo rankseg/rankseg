@@ -12,6 +12,31 @@ outside the main ``rankseg`` branch.
 At this stage, the main repository provides an entry point to that work rather
 than duplicating or re-implementing the full PaddleSeg integration locally.
 
+How it fits the RankSEG integration pattern
+-------------------------------------------
+
+The insertion point is the same as the first-party integrations:
+
+.. code-block:: text
+
+   PaddleSeg model -> probability map -> convert to PyTorch tensor
+   -> RankSEG -> prediction mask
+
+The difference is maintenance scope. RankSEG's public predictor currently
+expects a PyTorch tensor, so Paddle outputs need an explicit conversion step
+before calling ``RankSEG.predict``.
+
+.. code-block:: python
+
+   import torch
+   from rankseg import RankSEG
+
+   # probs_paddle has shape (batch_size, num_classes, height, width)
+   probs = torch.from_numpy(probs_paddle.numpy())
+
+   rankseg = RankSEG(metric="dice", solver="RMA", output_mode="multiclass")
+   preds = rankseg.predict(probs)
+
 Who should use this path
 ------------------------
 
@@ -29,6 +54,8 @@ Available entry points
   `Leev1s/rankseg (paddleseg branch) <https://github.com/Leev1s/rankseg/tree/paddleseg/rankseg/paddleseg>`_
 - Docker image:
   `ghcr.io/leev1s/rankseg <https://ghcr.io/leev1s/rankseg>`_
+- Notebook:
+  `notebooks/rankseg_with_paddleseg.ipynb <https://github.com/rankseg/rankseg/blob/main/notebooks/rankseg_with_paddleseg.ipynb>`_
 
 Scope and maintenance
 ---------------------
