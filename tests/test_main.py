@@ -172,6 +172,35 @@ def test_rankseg_iou_invalid_solver_falls_back_to_rma(demo_data):
     assert torch.equal(preds, expected)
 
 
+def test_rankseg_rma_multiclass_void_unassigned_policy():
+    probs = torch.tensor(
+        [
+            [
+                [[0.95, 0.01, 0.01, 0.01]],
+                [[0.01, 0.95, 0.95, 0.10]],
+                [[0.01, 0.55, 0.55, 0.01]],
+            ]
+        ],
+        dtype=torch.float32,
+    )
+
+    rankseg = RankSEG(
+        metric="dice",
+        solver="RMA",
+        output_mode="multiclass",
+        pruning_prob=0.5,
+        unassigned_policy="void",
+        void_index=99,
+    )
+    preds = rankseg.predict(probs)
+
+    assert rankseg.solver_params["unassigned_policy"] == "void"
+    assert rankseg.solver_params["void_index"] == 99
+    assert not hasattr(rankseg, "unassigned_policy")
+    assert not hasattr(rankseg, "void_index")
+    assert torch.equal(preds, torch.tensor([[[0, 1, 1, 99]]]))
+
+
 def test_rankseg_metric_is_case_insensitive_for_dice(demo_data):
     probs, _ = demo_data
 
