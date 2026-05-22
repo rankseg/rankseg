@@ -214,6 +214,8 @@ def rankseg_rma(
     smooth: float = 0.0,
     output_mode: str = "multiclass",
     pruning_prob: float = 0.5,
+    unassigned_policy: str = "max_score",
+    void_index: int = 255,
 ) -> torch.Tensor:
     r"""
     Produce the predicted segmentation by `rankdice` based on the estimated output probability.
@@ -238,6 +240,29 @@ def rankseg_rma(
         The threshold for pruning, if all probabilities are less than `pruning_prob`,
         we skip the class.
 
+    unassigned_policy : {'max_score', 'void'}, default='max_score'
+        Policy for pixels that are not selected as positive by any class when
+        converting individual binary masks to a multiclass prediction.
+
+        RankSEG-RMA first builds one binary mask per class. In multiclass mode,
+        a pixel can then be:
+        - selected by exactly one class, in which case that class is used;
+        - selected by multiple classes, in which case the class with the largest
+          incremental score is used;
+        - selected by no class, in which case this policy is used.
+
+        If 'max_score', unassigned pixels are assigned to the class with the
+        largest incremental score, as with pixels selected by multiple classes.
+
+        If 'void', unassigned pixels are assigned to `void_index`.
+
+    void_index : int, default=255
+        Label used for unassigned pixels when `unassigned_policy == 'void'`.
+
+        The default value, 255, is a prediction-level abstention label. Note
+        that this can make predictions contain labels outside the normal class
+        space.
+
     Returns
     -------
     preds : Tensor
@@ -251,10 +276,15 @@ def rankseg_rma(
 
     metric = metric.strip().lower() if isinstance(metric, str) else metric
     output_mode = output_mode.strip().lower() if isinstance(output_mode, str) else output_mode
+    unassigned_policy = unassigned_policy.strip().lower() if isinstance(unassigned_policy, str) else unassigned_policy
     if metric not in ["iou", "dice"]:
         raise ValueError("metric should be iou or dice")
     if output_mode not in ["multiclass", "multilabel"]:
         raise ValueError("output_mode should be multiclass or multilabel")
+    if unassigned_policy not in ["max_score", "void"]:
+        raise ValueError("unassigned_policy should be max_score or void")
+    if not isinstance(void_index, int):
+        raise TypeError("void_index must be an int")
 
     def compute_opt_tau(
         metric: str,
@@ -289,13 +319,16 @@ def rankseg_rma(
         pb_mean: torch.Tensor,
         smooth: float,
         pruning_prob: float,
+        unassigned_policy: str,
+        void_index: int,
     ) -> torch.Tensor:
         batch_size, num_classes, dim = probs.size()
 
         class_counts = overlap_preds.sum(dim=1)
+        unassigned_mask = class_counts == 0
         single_pred_mask = class_counts == 1
         overlap_mask = class_counts > 1
-        safe_to_predict = overlap_preds & ~overlap_mask.unsqueeze(1)
+        safe_to_predict = overlap_preds & single_pred_mask.unsqueeze(1)
 
         mu = (probs * safe_to_predict.float()).sum(dim=2, keepdim=True)
         opt_tau = safe_to_predict.float().sum(dim=2, keepdim=True)
@@ -314,11 +347,13 @@ def rankseg_rma(
         )
 
         increment_argmax_mask = increment_scores.argmax(dim=1)
-        nonoverlap_predicts = torch.zeros((batch_size, dim), dtype=torch.int16, device=device)
-        nonoverlap_predicts[single_pred_mask] = (
-            overlap_preds.to(torch.int16).argmax(dim=1).to(torch.int16)[single_pred_mask]
-        )
-        nonoverlap_predicts[overlap_mask] = increment_argmax_mask[overlap_mask].to(torch.int16)
+        nonoverlap_predicts = torch.zeros((batch_size, dim), dtype=torch.long, device=device)
+        nonoverlap_predicts[single_pred_mask] = overlap_preds.long().argmax(dim=1)[single_pred_mask]
+        nonoverlap_predicts[overlap_mask] = increment_argmax_mask[overlap_mask].long()
+        if unassigned_policy == "max_score":
+            nonoverlap_predicts[unassigned_mask] = increment_argmax_mask[unassigned_mask].long()
+        else:
+            nonoverlap_predicts[unassigned_mask] = void_index
 
         return nonoverlap_predicts
 
@@ -361,6 +396,8 @@ def rankseg_rma(
                 pb_mean,
                 smooth,
                 pruning_prob,
+                unassigned_policy,
+                void_index,
             )
         preds = nonoverlap_preds.reshape(batch_size, *image_shape)
 

@@ -66,7 +66,9 @@ class RankSEG(object):
     \*\*solver_params : dict
         Additional parameters passed to the specific solver.
         For 'BA', 'TRNA' or 'BA+TRNA': eps (1 - confidence intervals for refined
-        normal approximation of poisson-binomial distributions)
+        normal approximation of poisson-binomial distributions).
+        For 'RMA': unassigned_policy and void_index control multiclass output
+        for pixels not selected as positive by any class.
 
     References
     ----------

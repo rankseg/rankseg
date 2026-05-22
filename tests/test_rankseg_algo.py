@@ -50,6 +50,50 @@ def test_rankseg_rma_pruning_can_return_all_zero_masks():
     assert int(preds.sum().item()) == 0
 
 
+def test_rankseg_rma_multiclass_unassigned_policy_max_score():
+    probs = torch.tensor(
+        [
+            [
+                [[0.95, 0.01, 0.01, 0.01]],
+                [[0.01, 0.95, 0.95, 0.10]],
+                [[0.01, 0.55, 0.55, 0.01]],
+            ]
+        ],
+        dtype=torch.float32,
+    )
+
+    preds = rankseg_rma(probs, metric="dice", output_mode="multiclass", pruning_prob=0.5)
+
+    assert preds.shape == (1, 1, 4)
+    assert preds.dtype == torch.int64
+    assert torch.equal(preds[0, 0, :3], torch.tensor([0, 1, 1]))
+    assert preds[0, 0, 3].item() == 1
+
+
+def test_rankseg_rma_multiclass_unassigned_policy_void():
+    probs = torch.tensor(
+        [
+            [
+                [[0.95, 0.01, 0.01, 0.01]],
+                [[0.01, 0.95, 0.95, 0.10]],
+                [[0.01, 0.55, 0.55, 0.01]],
+            ]
+        ],
+        dtype=torch.float32,
+    )
+
+    preds = rankseg_rma(
+        probs,
+        metric="dice",
+        output_mode="multiclass",
+        pruning_prob=0.5,
+        unassigned_policy="void",
+        void_index=255,
+    )
+
+    assert torch.equal(preds, torch.tensor([[[0, 1, 1, 255]]]))
+
+
 def test_rankseg_rma_rejects_unknown_metric():
     probs = _demo_probs()
 
@@ -62,6 +106,13 @@ def test_rankseg_rma_rejects_unknown_output_mode():
 
     with pytest.raises(ValueError, match="output_mode should be multiclass or multilabel"):
         rankseg_rma(probs, metric="dice", output_mode="overlap")
+
+
+def test_rankseg_rma_rejects_unknown_unassigned_policy():
+    probs = _demo_probs()
+
+    with pytest.raises(ValueError, match="unassigned_policy should be max_score or void"):
+        rankseg_rma(probs, metric="dice", output_mode="multiclass", unassigned_policy="ignore")
 
 
 def test_rankdice_ba_trna_returns_binary_masks():
