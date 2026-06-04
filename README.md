@@ -64,7 +64,15 @@ rankseg = RankSEG(metric="dice", solver="RMA", output_mode="multiclass")
 probs = F.softmax(model_logits, dim=1)
 
 # 3. Get optimized predictions
-preds = rankseg.predict(probs)
+preds = rankseg(probs)
+```
+
+You can also use the functional API for one-off prediction:
+
+```python
+from rankseg.functional import rankseg
+
+preds = rankseg(probs, metric="dice", solver="RMA", output_mode="multiclass")
 ```
 
 > 💡 **Try it now:**

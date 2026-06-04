@@ -65,7 +65,15 @@ rankseg = RankSEG(metric="dice", solver="RMA", output_mode="multiclass")
 probs = F.softmax(model_logits, dim=1)
 
 # 3. 获取优化后的预测结果
-preds = rankseg.predict(probs)
+preds = rankseg(probs)
+```
+
+你也可以使用 functional API 进行一次性预测：
+
+```python
+from rankseg.functional import rankseg
+
+preds = rankseg(probs, metric="dice", solver="RMA", output_mode="multiclass")
 ```
 
 > 💡 **立即尝试:**

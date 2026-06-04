@@ -66,9 +66,17 @@ Here's how to use RankSEG to make segmentation predictions that target the Dice/
 
     # Make segmentation prediction targeting the Dice metric
     rankseg = RankSEG(metric='dice')  # or 'iou', 'acc'
-    preds = rankseg.predict(probs)    # shape: (batch_size, *image_shape)
+    preds = rankseg(probs)            # shape: (batch_size, *image_shape)
 
-The above code handles **99% of semantic segmentation use cases** where we have multiclass probabilities ``probs`` and want non-overlapping predictions (``output_mode='multiclass'``).
+The above code handles **99% of semantic segmentation use cases** where we have multiclass probabilities ``probs`` and want non-overlapping predictions (``output_mode='multiclass'``). The older ``rankseg.predict(probs)`` form remains supported.
+
+You can also use the functional API for one-off prediction:
+
+.. code-block:: python
+
+    from rankseg.functional import rankseg
+
+    preds = rankseg(probs, metric='dice')  # shape: (batch_size, *image_shape)
 
 **Key Benefits:**
 

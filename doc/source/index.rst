@@ -90,7 +90,15 @@ Basic usage example:
    rankseg = RankSEG(metric='dice')
 
    # Get optimized predictions
-   preds = rankseg.predict(probs)
+   preds = rankseg(probs)
+
+Functional API for one-off prediction:
+
+.. code-block:: python
+
+   from rankseg.functional import rankseg
+
+   preds = rankseg(probs, metric='dice')
 
 Why RankSEG?
 ------------

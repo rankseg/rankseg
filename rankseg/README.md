@@ -4,8 +4,9 @@ This directory contains the Python package modules behind the public `rankseg` A
 
 ## Main modules
 
-- `_rankseg.py`: defines the `RankSEG` class and the main prediction entry point
-- `_rankseg_algo.py`: lower-level solver implementations used by `RankSEG`
+- `functional.py`: defines the `rankseg` functional API
+- `_rankseg.py`: defines the reusable `RankSEG` predictor class
+- `_rankseg_algo.py`: lower-level solver implementations used by `rankseg.functional.rankseg`
 - `distribution.py`: probability-distribution utilities used by the algorithms
 - `integration/`: compatibility adapters for external model APIs
   - `transformers.py`: standard Hugging Face semantic segmentation helpers. Use `transformers.postprocess` for inference; use `transformers.restore_semantic_probs` when probability maps are needed directly.
