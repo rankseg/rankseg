@@ -3,7 +3,7 @@ import torch
 import torch.nn.functional as F
 from torchmetrics.functional.segmentation import dice_score
 
-from rankseg import RankSEG, rankseg_predict, rankseg_rma
+from rankseg import RankSEG, functional, rankseg_rma
 
 
 def _labels_to_one_hot(labels: torch.Tensor, num_classes: int) -> torch.Tensor:
@@ -68,11 +68,11 @@ def test_rankseg_rma_multiclass(demo_data):
     assert mean_dice == pytest.approx(1.0)
 
 
-def test_rankseg_predict_matches_rankseg_predict_method(demo_data):
+def test_functional_rankseg_matches_rankseg_method(demo_data):
     probs, _ = demo_data
     rankseg = RankSEG(metric="dice", solver="RMA", output_mode="multiclass")
 
-    preds_functional = rankseg_predict(probs, metric="dice", solver="RMA", output_mode="multiclass")
+    preds_functional = functional.rankseg(probs, metric="dice", solver="RMA", output_mode="multiclass")
     preds_method = rankseg.predict(probs)
 
     assert torch.equal(preds_functional, preds_method)

@@ -74,9 +74,9 @@ You can also use the functional API for one-off prediction:
 
 .. code-block:: python
 
-    from rankseg import rankseg_predict
+    from rankseg.functional import rankseg
 
-    preds = rankseg_predict(probs, metric='dice')  # shape: (batch_size, *image_shape)
+    preds = rankseg(probs, metric='dice')  # shape: (batch_size, *image_shape)
 
 **Key Benefits:**
 

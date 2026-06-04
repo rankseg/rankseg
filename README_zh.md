@@ -71,9 +71,9 @@ preds = rankseg(probs)
 你也可以使用 functional API 进行一次性预测：
 
 ```python
-from rankseg import rankseg_predict
+from rankseg.functional import rankseg
 
-preds = rankseg_predict(probs, metric="dice", solver="RMA", output_mode="multiclass")
+preds = rankseg(probs, metric="dice", solver="RMA", output_mode="multiclass")
 ```
 
 > 💡 **立即尝试:**

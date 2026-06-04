@@ -70,9 +70,9 @@ preds = rankseg(probs)
 You can also use the functional API for one-off prediction:
 
 ```python
-from rankseg import rankseg_predict
+from rankseg.functional import rankseg
 
-preds = rankseg_predict(probs, metric="dice", solver="RMA", output_mode="multiclass")
+preds = rankseg(probs, metric="dice", solver="RMA", output_mode="multiclass")
 ```
 
 > 💡 **Try it now:**

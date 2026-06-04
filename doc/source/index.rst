@@ -96,9 +96,9 @@ Functional API for one-off prediction:
 
 .. code-block:: python
 
-   from rankseg import rankseg_predict
+   from rankseg.functional import rankseg
 
-   preds = rankseg_predict(probs, metric='dice')
+   preds = rankseg(probs, metric='dice')
 
 Why RankSEG?
 ------------
