@@ -13,6 +13,7 @@ Module Interface
 .. autoapisummary::
 
    rankseg.RankSEG
+   rankseg.rankseg_predict
 
 
 Integration Interface
