@@ -357,13 +357,6 @@ def rankseg_rma(
 
         return nonoverlap_predicts
 
-    return_binary_masks = output_mode == "multilabel"
-    is_binary = (probs.shape[1] == 2) and not return_binary_masks
-
-    if is_binary:
-        probs = probs[:, 1:2, ...]
-        num_classes = 1
-
     device = probs.device
     batch_size, num_classes, *image_shape = probs.shape
 
@@ -382,23 +375,20 @@ def rankseg_rma(
                 continue
             overlap_preds[b, c, top_index[b, c, : opt_tau[b, c]]] = True
 
-    if return_binary_masks:
+    if output_mode == "multilabel":
         preds = overlap_preds.reshape(batch_size, num_classes, *image_shape)
     else:
-        if is_binary:
-            nonoverlap_preds = overlap_preds[:, 0, ...].long()
-        else:
-            nonoverlap_preds = convert_to_nonoverlap(
-                overlap_preds,
-                probs,
-                metric,
-                sorted_prob,
-                pb_mean,
-                smooth,
-                pruning_prob,
-                unassigned_policy,
-                void_index,
-            )
+        nonoverlap_preds = convert_to_nonoverlap(
+            overlap_preds,
+            probs,
+            metric,
+            sorted_prob,
+            pb_mean,
+            smooth,
+            pruning_prob,
+            unassigned_policy,
+            void_index,
+        )
         preds = nonoverlap_preds.reshape(batch_size, *image_shape)
 
     return preds.long()
