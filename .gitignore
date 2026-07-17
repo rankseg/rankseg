@@ -215,3 +215,6 @@ promote/
 
 # local
 local/
+
+# experimental
+experiments/monai-pr-8908-reproducibility/outputs/
