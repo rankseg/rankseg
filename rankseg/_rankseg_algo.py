@@ -168,7 +168,11 @@ def rankdice_ba(
     pb_scale = torch.sqrt(pb_var_safe)
     pb_m3 = torch.sum(sorted_prob * (1 - sorted_prob) * (1 - 2 * sorted_prob), axis=-1)
     pb_skew = pb_m3 / pb_var_safe ** (3 / 2)
-    use_scaled_scores = smooth > _SCALED_SCORE_SMOOTH_THRESHOLD
+    # For s >= 1, maximize s * (score - 1) rather than a score close to 1.
+    # Waiting until s > 1e6 already loses float32 candidate differences at
+    # and below that boundary. Keep s < 1 (especially s == 0) on its original
+    # path so scaling does not shrink scores or introduce tiny-s division.
+    use_scaled_scores = smooth >= 1.0
 
     for k in range(num_class):
         active_indices = torch.where(~mask_skip[:, k])[0]

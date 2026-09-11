@@ -90,15 +90,15 @@ def test_rankdice_optional_accelerator_matches_cpu(device_type, solver):
 
 
 def _rankdice_formula_oracle(probs, solver, smooth, eps=1e-4):
-    """Evaluate the paper's BA/TRNA scalar formulas without solver code."""
-    working_probs = probs.float() if probs.dtype in (torch.float16, torch.bfloat16) else probs
+    """Evaluate the paper's scalar formulas in float64, without solver code."""
+    working_probs = probs.to(torch.float64)
     sorted_prob, top_index = torch.sort(working_probs, descending=True)
     dim = sorted_prob.numel()
     cumsum_prob = sorted_prob.cumsum(0)
     if dim == 1:
         up_tau = 1
     else:
-        search_denom = torch.arange(1, dim) + smooth + dim
+        search_denom = torch.arange(1, dim, dtype=torch.float64) + smooth + dim
         if smooth > 1e6:
             stop_search = cumsum_prob[:-1] / search_denom >= sorted_prob[1:]
         else:
@@ -113,7 +113,7 @@ def _rankdice_formula_oracle(probs, solver, smooth, eps=1e-4):
     pb_skew = pb_m3 / pb_var_safe ** (3 / 2)
     rv = RefinedNormalPB(dim=dim, loc=pb_mean, scale=pb_var_safe.sqrt(), skew=pb_skew)
     lower, upper = rv.interval(eps)
-    support = torch.arange(int(lower.item()), int(upper.item()) + 1)
+    support = torch.arange(int(lower.item()), int(upper.item()) + 1, dtype=torch.float64)
     full_pmf = rv.pmf(support)
     full_pmf = full_pmf / full_pmf.sum()
 
@@ -801,6 +801,28 @@ def test_rankdice_matches_independent_scalar_formula_oracle(solver, smooth, dtyp
     )
 
     assert torch.equal(preds[0, 0], expected)
+
+
+@pytest.mark.parametrize("solver", ["BA", "TRNA", "BA+TRNA"])
+@pytest.mark.parametrize("smooth", [1.0, 10.0, 1e4, 999999.0, 1e6, 1000001.0, 1e8])
+@pytest.mark.parametrize(
+    "device",
+    [
+        "cpu",
+        pytest.param("cuda", marks=pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA is not available")),
+    ],
+)
+def test_rankdice_positive_smooth_preserves_close_candidate_order(solver, smooth, device):
+    # At s=1e6, tau=3 beats tau=2 by only 4e-8 in the original score.
+    # Compare masks exactly against an independent float64 scalar reference.
+    probs = torch.tensor([0.91, 0.73, 0.52, 0.31, 0.14, 0.03], dtype=torch.float32)
+    reference_solver = "TRNA" if solver == "BA+TRNA" else solver
+    expected = _rankdice_formula_oracle(probs, reference_solver, smooth)
+    assert torch.equal(expected, torch.tensor([True, True, True, False, False, False]))
+
+    actual = rankdice_ba(probs.to(device).view(1, 1, -1), solver=solver, smooth=smooth, pruning_prob=0.0)
+
+    assert torch.equal(actual[0, 0].cpu(), expected)
 
 
 @pytest.mark.parametrize("solver", ["BA", "TRNA"])

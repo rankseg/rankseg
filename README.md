@@ -29,13 +29,16 @@ Use it with frozen PyTorch segmentation models for multiclass, binary, and
 multilabel tasks, from natural images to 3D medical scans.
 
 <div align="center">
-  <p align="center"><b>Demo: RankSEG on a 3D CT cohort</b></p>
+  <p><b>RankSEG on 3D CT</b> · Same model. No retraining.</p>
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="./fig/monai_pancreas_rankseg_dark.png">
     <source media="(prefers-color-scheme: light)" srcset="./fig/monai_pancreas_rankseg.png">
-    <img src="./fig/monai_pancreas_rankseg.png" alt="RankSEG compared with argmax on a MONAI Swin UNETR pancreas segmentation" width="100%">
+    <img src="./fig/monai_pancreas_rankseg.png" alt="Pancreas CT slice: ground truth, argmax (Dice 35.0), and RankSEG (Dice 49.3). White outlines mark ground truth." width="100%">
   </picture>
-  <p><sub>Frozen MONAI BTCV Swin UNETR · 20 MSD Pancreas volumes. <a href="https://github.com/rankseg/rankseg-benchmark#monai-datasets-and-checkpoints">Evaluation protocol and example selection</a>.</sub></p>
+  <p><b>20-volume mean Dice: 50.30 → 54.87 (+4.57 pp)</b><br>
+  Frozen MONAI BTCV Swin UNETR · MSD Pancreas.</p>
+  <p>Illustrative slice above; white outline = ground truth. Research use only.<br>
+  <a href="https://github.com/rankseg/rankseg-benchmark#monai-datasets-and-checkpoints">Evaluation protocol and example selection</a>.</p>
 </div>
 
 ## 📰 News
