@@ -1,4 +1,5 @@
 # Author: Ben Dai <bendai@cuhk.edu.hk>
+from numbers import Real
 from typing import Optional, Union
 
 import numpy as np
@@ -9,7 +10,57 @@ from torch.distributions import Distribution, constraints
 from torch.distributions.normal import Normal
 from torch.distributions.utils import broadcast_all
 
-_Number = (int, float, bool)
+from rankseg._validation import SUPPORTED_PROB_DTYPES, validate_finite_real, validate_integral
+
+
+def _validate_interval_probability(p):
+    if isinstance(p, Tensor):
+        if p.dtype == torch.bool or p.is_complex():
+            raise TypeError("p must contain real numbers")
+        if p.numel() == 0:
+            raise ValueError("p must not be empty")
+        if not bool(torch.isfinite(p).all()):
+            raise ValueError("p must contain only finite values")
+        if bool(torch.any((p < 0) | (p > 1))):
+            raise ValueError("p must be in the range [0, 1]")
+        return p.detach().to(device="cpu", dtype=torch.float64).numpy()
+
+    try:
+        scipy_p = np.asarray(p)
+    except (TypeError, ValueError) as error:
+        raise TypeError("p must contain real numbers") from error
+    if scipy_p.dtype.kind not in "fiu" or scipy_p.dtype.kind == "b":
+        raise TypeError("p must contain real numbers")
+    if scipy_p.size == 0:
+        raise ValueError("p must not be empty")
+    if not bool(np.isfinite(scipy_p).all()):
+        raise ValueError("p must contain only finite values")
+    if bool(np.any((scipy_p < 0) | (scipy_p > 1))):
+        raise ValueError("p must be in the range [0, 1]")
+    return scipy_p.astype(np.float64, copy=False)
+
+
+def _validate_icdf_probability(p):
+    if not isinstance(p, Tensor):
+        raise TypeError("p must be a torch.Tensor")
+    if p.dtype not in SUPPORTED_PROB_DTYPES:
+        raise TypeError("p must have a real floating-point dtype")
+    if p.numel() == 0:
+        raise ValueError("p must not be empty")
+    if not bool(torch.isfinite(p).all()):
+        raise ValueError("p must contain only finite values")
+    if bool(torch.any((p <= 0) | (p >= 1))):
+        raise ValueError("p must be in the range (0, 1)")
+    return p
+
+
+def _validate_real_parameter_type(name, value):
+    if isinstance(value, Tensor):
+        if value.dtype == torch.bool or value.is_complex():
+            raise TypeError(f"{name} must contain real numbers")
+        return
+    if isinstance(value, bool) or not isinstance(value, Real):
+        raise TypeError(f"{name} must contain real numbers")
 
 
 class RefinedNormalPB(Distribution):
@@ -29,12 +80,36 @@ class RefinedNormalPB(Distribution):
 
     The PDF is defined as:
 
-    Args:
-        skew: Skewness parameter controlling the third moment correction term.
-        validate_args: Whether to validate the arguments.
+    .. math::
+        f(k; skew) = \frac{\phi(x)}{scale}
+        \left[1 + \frac{skew}{6}(x^3 - 3x)\right],
+        \quad x = \frac{k + 0.5 - loc}{scale}.
+
+    Parameters
+    ----------
+    dim : torch.Tensor or int
+        Finite, nonnegative integer upper bound used when clipping integer
+        confidence intervals.
+    loc : torch.Tensor or float
+        Finite location parameter of the refined normal approximation.
+    scale : torch.Tensor or float
+        Finite, strictly positive scale parameter of the refined normal
+        approximation.
+    skew : torch.Tensor or float
+        Finite skewness parameter controlling the third-moment correction
+        term.
+    validate_args : bool, optional
+        Whether to validate arguments through
+        ``torch.distributions.Distribution``. Explicitly setting this to
+        ``False`` bypasses parameter validation.
     """
 
-    arg_constraints = {"loc": constraints.real, "scale": constraints.positive, "skew": constraints.real}
+    arg_constraints = {
+        "dim": constraints.nonnegative_integer,
+        "loc": constraints.real,
+        "scale": constraints.positive,
+        "skew": constraints.real,
+    }
     support = constraints.real
     has_rsample = False
 
@@ -46,12 +121,17 @@ class RefinedNormalPB(Distribution):
         skew: Union[Tensor, float],
         validate_args: Optional[bool] = None,
     ):
+        validation_enabled = self._validate_args if validate_args is None else validate_args
+        if validation_enabled:
+            for name, value in (("dim", dim), ("loc", loc), ("scale", scale), ("skew", skew)):
+                _validate_real_parameter_type(name, value)
         self.dim, self.loc, self.scale, self.skew = broadcast_all(dim, loc, scale, skew)
-        if isinstance(loc, _Number) and isinstance(scale, _Number):
-            batch_shape = torch.Size()
-        else:
-            batch_shape = self.loc.size()
+        batch_shape = self.loc.size()
         super().__init__(batch_shape=batch_shape, validate_args=validate_args)
+        if self._validate_args:
+            for name in ("loc", "scale", "skew"):
+                if not bool(torch.isfinite(getattr(self, name)).all()):
+                    raise ValueError(f"{name} must contain only finite values")
 
     def expand(self, batch_shape, _instance=None):
         new = self._get_checked_instance(RefinedNormalPB, _instance)
@@ -115,6 +195,7 @@ class RefinedNormalPB(Distribution):
     # def log_prob(self, x):
     #     return torch.log(self.pdf(x))
 
+    @torch.no_grad()
     def icdf(self, p, max_iter=1000, tol=1e-6):
         ## To be optimized: Brent’s method is better for root finding.
         """Inverse CDF (quantile function) using bracketed bisection.
@@ -124,17 +205,30 @@ class RefinedNormalPB(Distribution):
         p : torch.Tensor
             Probability values (0 < p < 1)
         max_iter : int, optional
-            Maximum number of iterations (default: 50)
+            Positive maximum number of bisection iterations (default: 1000).
         tol : float, optional
-            Tolerance for convergence (default: 1e-6)
+            Finite, strictly positive convergence tolerance (default: 1e-6).
+            Bisection also stops when finite-precision rounding leaves no
+            representable midpoint between the current bounds.
 
         Returns
         -------
         torch.Tensor
             Quantile values corresponding to probabilities p
+
+        Notes
+        -----
+        This numerical root-finding operation is not differentiable. Gradient
+        recording is disabled internally, even when the probabilities or
+        distribution parameters require gradients.
         """
-        # Clamp probabilities to valid range
-        p = torch.clamp(p, 1e-8, 1 - 1e-8)
+        p = _validate_icdf_probability(p)
+        max_iter = validate_integral("max_iter", max_iter)
+        if max_iter <= 0:
+            raise ValueError("max_iter must be greater than 0")
+        tol = validate_finite_real("tol", tol)
+        if tol <= 0:
+            raise ValueError("tol must be greater than 0")
 
         loc = self.loc
         scale = self.scale
@@ -160,22 +254,41 @@ class RefinedNormalPB(Distribution):
             mid = (low + high) / 2
             cdf_mid = self.cdf(mid)
             go_right = cdf_mid < p
-            low = torch.where(go_right, mid, low)
-            high = torch.where(go_right, high, mid)
-            if torch.max(torch.abs(high - low)) < tol:
+            next_low = torch.where(go_right, mid, low)
+            next_high = torch.where(go_right, high, mid)
+            made_progress = (next_low != low) | (next_high != high)
+            low, high = next_low, next_high
+            converged = (torch.max(torch.abs(high - low)) < tol) | ~made_progress.any()
+            if bool(converged):
                 break
 
         return (low + high) / 2
 
+    @torch.no_grad()
     def interval(self, p):
+        """Compute an inclusive confidence interval with retained mass ``1 - p``.
+
+        ``p`` may be a real scalar or an array-like/Tensor of real values in
+        ``[0, 1]``. Every value must be finite.
+
+        SciPy evaluates the refined-normal quantiles on the CPU. Tensor inputs
+        are detached for this non-differentiable calculation, and the integer
+        endpoints are returned on the same device as the distribution
+        parameters.
         """
-        Compute the confidence interval [lq, uq] such that P(lq <= X <= uq) = 1 - p.
-        """
+        scipy_p = _validate_interval_probability(p)
+        scipy_skew = self.skew.detach().to(device="cpu", dtype=torch.float64).numpy()
         scipy_refined_normal = RefinedNormal()
-        lq, uq = scipy_refined_normal.interval(1 - p, skew=self.skew)
-        lq, uq = torch.as_tensor(lq), torch.as_tensor(uq)
-        lq = torch.clip(torch.floor(self.scale * lq + self.loc) - 1, min=0)
-        uq = torch.clip(torch.ceil(self.scale * uq + self.loc), max=self.dim)
+        lq, uq = scipy_refined_normal.interval(1 - scipy_p, skew=scipy_skew)
+        lq = torch.as_tensor(lq, device=self.loc.device)
+        uq = torch.as_tensor(uq, device=self.loc.device)
+        loc = self.loc.detach()
+        scale = self.scale.detach()
+        dim = self.dim.detach()
+        lq = torch.clamp(torch.floor(scale * lq + loc) - 1, min=0)
+        uq = torch.clamp(torch.ceil(scale * uq + loc), min=0)
+        lq = torch.minimum(lq, dim)
+        uq = torch.minimum(uq, dim)
         return lq.int(), uq.int()
 
 

@@ -2,7 +2,7 @@
 
 # 🧩 RankSEG
 
-#### Boost Segmentation Performance Instantly via Direct Dice/IoU Post-Optimization
+#### Metric-Aware Dice/IoU Post-Processing Without Retraining
 
 [![PyPI](https://badge.fury.io/py/rankseg.svg)](https://pypi.org/project/rankseg/)
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
@@ -18,128 +18,79 @@
 [![NeurIPS](https://img.shields.io/badge/NeurIPS-2025-black.svg)](https://openreview.net/pdf?id=4tRMm1JJhw)
 
 
-[**Quick Start**](#-quick-start) | [**Official Integrations**](#-official-integrations) | [**Key Features**](#-key-features) | [**Benchmarks**](#-benchmarks) | [**Citation**](#-citation)
+[**News**](#-news) | [**Quick Start**](#-quick-start) | [**Benchmarks**](#-benchmarks) | [**Integrations**](#-integrations) | [**Docs**](https://rankseg.readthedocs.io/en/latest/) | [**Citation**](#-citation)
 </div>
 
 ---
 
-**RankSEG** is a **plug-and-play** post-processing module that boosts segmentation performance (Dice/IoU) during inference. It works with **ANY pre-trained probabilistic segmentation model** (SAM, DeepLab, SegFormer, etc.) without any retraining or fine-tuning.
-
-Explore RankSEG by reading our [documentation](https://rankseg.readthedocs.io/en/latest/).
-
-> If RankSEG improves your segmentation workflow, please consider starring the repo:
-> https://github.com/rankseg/rankseg
-
-### 🌟 Why RankSEG?
-Conventional methods use `argmax` or fixed `thresholding`, which are **not theoretically optimized** for non-decomposable metrics like Dice or IoU. RankSEG bridges this gap by directly optimizing the target metric, yielding "free" performance gains.
+**RankSEG** replaces `argmax` or fixed thresholds with metric-aware post-processing
+designed to improve Dice or IoU—**no retraining or fine-tuning**.
+Use it with frozen PyTorch segmentation models for multiclass, binary, and
+multilabel tasks, from natural images to 3D medical scans.
 
 <div align="center">
-  <p align="center"><b>Demo: RankSEG vs. Argmax on <i>Segformer ADE20k</i></b></p>
-  <img src="./fig/tmpclkalz9y.gif" alt="RankSEG vs Argmax Comparison" width="85%">
+  <p align="center"><b>Demo: RankSEG on a 3D CT cohort</b></p>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./fig/monai_pancreas_rankseg_dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="./fig/monai_pancreas_rankseg.png">
+    <img src="./fig/monai_pancreas_rankseg.png" alt="RankSEG compared with argmax on a MONAI Swin UNETR pancreas segmentation" width="100%">
+  </picture>
+  <p><sub>Frozen MONAI BTCV Swin UNETR · 20 MSD Pancreas volumes. <a href="https://github.com/rankseg/rankseg-benchmark#monai-datasets-and-checkpoints">Evaluation protocol and example selection</a>.</sub></p>
 </div>
+
+## 📰 News
+
+- **August 2026 — RankSEG joins the official MONAI Tutorials!** Try metric-aware post-processing for 3D medical segmentation. [Tutorial](https://github.com/Project-MONAI/tutorials/blob/main/modules/rankseg_integration.ipynb) · [Colab](https://colab.research.google.com/github/Project-MONAI/tutorials/blob/main/modules/rankseg_integration.ipynb)
 
 ## ⚡ Quick Start
 
-RankSEG is designed to drop into an existing PyTorch segmentation pipeline with just a few lines of code.
-
-### 1. Installation
 ```bash
 pip install -U rankseg
 ```
 
-### 2. Basic Usage
-![](https://raw.githubusercontent.com/rankseg/rankseg/main/fig/rankseg_workflow.svg)
-
-### PyTorch Native Flow
+For multiclass model logits shaped `(batch, classes, *spatial)`, with at least two classes:
 
 ```python
 from rankseg import RankSEG
-import torch.nn.functional as F
 
-# 1. Initialize RankSEG with the official default configuration
-rankseg = RankSEG(metric="dice", solver="RMA", output_mode="multiclass")
-
-# 2. Get probability output from YOUR model
-# probs: (batch_size, num_classes, *image_shape)
-probs = F.softmax(model_logits, dim=1)
-
-# 3. Get optimized predictions
-preds = rankseg(probs)
+probs = model_logits.softmax(dim=1)
+preds = RankSEG(metric="dice")(probs)  # replaces argmax; shape: (batch, *spatial)
 ```
 
-You can also use the functional API for one-off prediction:
+For binary/multilabel examples, the functional API, and solver options, see the
+[Getting Started guide](https://rankseg.readthedocs.io/en/latest/getting_started.html).
 
-```python
-from rankseg.functional import rankseg
-
-preds = rankseg(probs, metric="dice", solver="RMA", output_mode="multiclass")
-```
-
-> 💡 **Try it now:**
-> [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1c2znXP7_yt_9MrE75p-Ag82LHz-WfKq-?usp=sharing)
->
-> Official PyTorch integration:
-> [Docs](https://rankseg.readthedocs.io/en/latest/integrations_pytorch.html) · [Example](https://github.com/rankseg/rankseg/blob/main/examples/pytorch_native_rankseg.py)
->
-> Hugging Face semantic segmentation integration:
-> [Notebook](./notebooks/rankseg_with_transformers.ipynb) · [Colab](https://colab.research.google.com/github/rankseg/rankseg/blob/main/notebooks/rankseg_with_transformers.ipynb)
->
-> SAM family integration:
-> [Notebook](./notebooks/rankseg_with_sam_family.ipynb) · [Colab](https://colab.research.google.com/github/rankseg/rankseg/blob/main/notebooks/rankseg_with_sam_family.ipynb)
-
-
-## 🔌 Official Integrations
-
-These are the maintained integration entry points documented by this repository.
-
-| Path | Status | Entry |
-| :--- | :---: | :--- |
-| **PyTorch Native** | **Ready** | [Docs](https://rankseg.readthedocs.io/en/latest/integrations_pytorch.html) · [Example](./examples/pytorch_native_rankseg.py) |
-| **Hugging Face semantic segmentation** | **Ready** | `from rankseg.integration import transformers` -> `transformers.postprocess` / `transformers.restore_semantic_probs` · [Docs](https://rankseg.readthedocs.io/en/latest/integrations_transformers.html) · [Example](./examples/transformers_rankseg.py) |
-| **SAM family** | **Ready** | `from rankseg.integration import sam` -> `sam.Sam1` / `sam.Sam2` / `sam.Sam3` · [Docs](https://rankseg.readthedocs.io/en/latest/integrations_sam.html) · [Notebook](./notebooks/rankseg_with_sam_family.ipynb) |
-<!-- | **MMSegmentation** | Planned | Official integration guide in progress | -->
-
-## 🌐 External Integrations
-
-These integrations already exist, but are currently maintained outside the main
-repository.
-
-| Integration | Status | Entry |
-| :--- | :---: | :--- |
-| **PaddleSeg** | External | [Docs](https://rankseg.readthedocs.io/en/latest/integrations_paddleseg.html) · [Branch](https://github.com/Leev1s/rankseg/tree/paddleseg/rankseg/paddleseg) · [Docker](https://ghcr.io/leev1s/rankseg) |
-
-
-## ✨ Key Features
-
-- **🚀 Performance Boost**: Consistently improves mIoU/mDice scores over standard `argmax`.
-- **🔌 Zero Effort**: Compatible with **any** PyTorch model. No retraining, no fine-tuning.
-- **🆓 Training-Free**: Purely post-processing. Works with frozen weights.
-- **⚡ Real-time Inference**: Efficient `RMA` (Reciprocal Moment Approximation) solver.
-- **🧩 Versatile**: Supports semantic (multi-class) and binary (multi-label) tasks.
-
+**Try it online:** [Colab](https://colab.research.google.com/drive/1c2znXP7_yt_9MrE75p-Ag82LHz-WfKq-?usp=sharing) · [Interactive demo](https://huggingface.co/spaces/statmlben/rankseg)
 
 ## 📊 Benchmarks
 
-RankSEG delivers consistent gains across various architectures and datasets **without touching a single weight**.
+**Same probabilities. No retraining.** Selected results compare `argmax` with
+RankSEG-RMA using the Dice objective. Scores are percentages; gains are
+percentage points (pp).
 
-| Model | Dataset | mIoU (Argmax) | mIoU (**RankSEG**) | Gain |
-| :--- | :--- | :---: | :---: | :---: |
-| **DeepLabV3+** | PASCAL VOC | 77.25% | **78.14%** | +0.89% |
-| **SegFormer** | PASCAL VOC | 77.57% | **78.59%** | +1.02% |
-| **UPerNet** | PASCAL VOC | 79.52% | **80.31%** | +0.79% |
-| **SegFormer** | ADE20K | 40.00% | **40.82%** | +0.82% |
-| **UPerNet** | ADE20K | 42.86% | **43.84%** | +0.98% |
+<div align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./fig/benchmark_results_dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="./fig/benchmark_results.png">
+    <img src="./fig/benchmark_results.png" alt="Selected RankSEG benchmark results comparing Dice and IoU with argmax on five datasets" width="100%">
+  </picture>
+</div>
 
-*Detailed results available in our [NeurIPS 2025 paper](https://openreview.net/forum?id=4tRMm1JJhw).*
+Gains vary by dataset. Full results, metric definitions, runtime, and
+reproduction commands: [rankseg-benchmark](https://github.com/rankseg/rankseg-benchmark).
+For the algorithm and additional experiments, see our [NeurIPS 2025 paper](https://openreview.net/forum?id=4tRMm1JJhw).
 
+## 🔌 Integrations
 
-## 🧪 Additional Demos
+Choose your workflow:
 
-| Framework | Task | Quick Start |
-| :--- | :--- | :---: |
-| **SAM family** | SAM1, SAM2, SAM3 masks | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/rankseg/rankseg/blob/main/notebooks/rankseg_with_sam_family.ipynb) |
-| **Hugging Face** | Interactive Demo | [![Spaces](https://img.shields.io/badge/%F0%9F%A4%97-Spaces-blue)](https://huggingface.co/spaces/statmlben/rankseg) |
-
+| Ecosystem | Get started | Try online |
+| :--- | :--- | :--- |
+| **PyTorch** | [Docs](https://rankseg.readthedocs.io/en/latest/integrations_pytorch.html) · [Example](./examples/pytorch_native_rankseg.py) | [Colab](https://colab.research.google.com/drive/1c2znXP7_yt_9MrE75p-Ag82LHz-WfKq-?usp=sharing) |
+| **Hugging Face** | [Docs](https://rankseg.readthedocs.io/en/latest/integrations_transformers.html) · [Notebook](./notebooks/rankseg_with_transformers.ipynb) | [Colab](https://colab.research.google.com/github/rankseg/rankseg/blob/main/notebooks/rankseg_with_transformers.ipynb) |
+| **SAM family** | [Docs](https://rankseg.readthedocs.io/en/latest/integrations_sam.html) · [Notebook](./notebooks/rankseg_with_sam_family.ipynb) | [Colab](https://colab.research.google.com/github/rankseg/rankseg/blob/main/notebooks/rankseg_with_sam_family.ipynb) |
+| **MONAI** | [Docs](https://rankseg.readthedocs.io/en/latest/integrations_monai.html) · [Official tutorial](https://github.com/Project-MONAI/tutorials/blob/main/modules/rankseg_integration.ipynb) | [Colab](https://colab.research.google.com/github/Project-MONAI/tutorials/blob/main/modules/rankseg_integration.ipynb) |
+| **PaddleSeg** (externally maintained) | [Docs](https://rankseg.readthedocs.io/en/latest/integrations_paddleseg.html) · [Community branch](https://github.com/Leev1s/rankseg/tree/paddleseg/rankseg/paddleseg) | — |
 
 ## 🔗 Citation
 

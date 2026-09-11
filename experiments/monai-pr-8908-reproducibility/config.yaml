@@ -78,7 +78,7 @@ metrics:
   confidence_level: 0.95
 
 outputs:
-  directory: experiments/monai_pr8908/outputs
-  probabilities: experiments/monai_pr8908/outputs/probabilities
+  directory: experiments/monai-pr-8908-reproducibility/outputs
+  probabilities: experiments/monai-pr-8908-reproducibility/outputs/probabilities
   probability_dtype: float32
   image_dtype: float16

@@ -1,15 +1,24 @@
-name: Build wheels
+name: Build distributions
 
 on:
   push:
+    branches: [main, master]
     paths-ignore:
       - .gitignore
-      - README.md
-      - LICENSE
-      - doc/
+      - "doc/**"
+      - .readthedocs.yaml
+  pull_request:
+    branches: [main, master]
+    paths-ignore:
+      - .gitignore
+      - "doc/**"
+      - .readthedocs.yaml
   release:
     types:
       - published
+
+permissions:
+  contents: read
 
 jobs:
   build_wheels:
@@ -21,15 +30,87 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.9'
+          python-version: '3.10'
 
-      - name: Install build
-        run: python -m pip install --upgrade build
+      - name: Install build dependencies
+        run: python -m pip install --upgrade build twine "readme_renderer[md]"
 
       - name: Build wheel and sdist
         run: python -m build
+
+      - name: Check distributions
+        run: |
+          python -m twine check --strict dist/*
+          python scripts/check_distributions.py dist
+
+      - name: Install and smoke-test distributions
+        working-directory: ${{ runner.temp }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          smoke_test() {
+            RANKSEG_ARTIFACT="$1" python - <<'PY'
+          import os
+          from importlib.metadata import version
+          from pathlib import Path
+
+          import torch
+          import rankseg
+
+          package_path = Path(rankseg.__file__).resolve()
+          workspace = Path(os.environ["GITHUB_WORKSPACE"]).resolve()
+          assert workspace not in package_path.parents, (
+              f"imported rankseg from the source checkout: {package_path}"
+          )
+          assert rankseg.__version__ == version("rankseg")
+
+          probs = torch.tensor([[[0.8, 0.1], [0.2, 0.9]]])
+          preds = rankseg.RankSEG(
+              metric="accuracy",
+              output_mode="multiclass",
+              solver="argmax",
+          ).predict(probs)
+          assert preds.tolist() == [[0, 1]]
+
+          print(
+              f"smoke-tested {os.environ['RANKSEG_ARTIFACT']}: "
+              f"rankseg {rankseg.__version__} from {package_path}"
+          )
+          PY
+          }
+
+          wheels=("$GITHUB_WORKSPACE"/dist/*.whl)
+          sdists=("$GITHUB_WORKSPACE"/dist/*.tar.gz)
+          test "${#wheels[@]}" -eq 1
+          test "${#sdists[@]}" -eq 1
+
+          python -m pip install "${wheels[0]}"
+          python -m pip check
+          smoke_test "${wheels[0]}"
+
+          python -m pip uninstall --yes rankseg
+          python -m pip install --no-deps "${sdists[0]}"
+          python -m pip check
+          smoke_test "${sdists[0]}"
+
+      - name: Run tests from the packaged source
+        working-directory: ${{ runner.temp }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install pytest pytest-cov torchmetrics
+          sdists=("$GITHUB_WORKSPACE"/dist/*.tar.gz)
+          test "${#sdists[@]}" -eq 1
+          rankseg_sdist_dir="$(mktemp -d)"
+          tar -xzf "${sdists[0]}" -C "$rankseg_sdist_dir"
+          sources=("$rankseg_sdist_dir"/rankseg-*)
+          test "${#sources[@]}" -eq 1
+          cd "${sources[0]}"
+          python -m pytest
 
       - uses: actions/upload-artifact@v4
         with:
           name: rankseg-dist
           path: dist/*
+          if-no-files-found: error

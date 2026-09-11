@@ -22,6 +22,14 @@ about, such as Dice or IoU.
 For multilabel segmentation, replace ``softmax`` with ``sigmoid`` and use
 ``output_mode="multilabel"``.
 
+.. note::
+   Final prediction entry points, including the Transformers ``postprocess``
+   helper and the SAM adapters' ``postprocess`` methods, disable PyTorch
+   gradient recording internally. They return inference results and are not
+   differentiable. The corresponding ``restore_*_probs`` helpers intentionally
+   remain differentiable when called directly, so they can be used when
+   continuous restored probability maps are required.
+
 Inputs and outputs
 ------------------
 
@@ -76,6 +84,10 @@ Available integrations
      - You use SAM1, SAM2, or SAM3 outputs from Hugging Face Transformers.
      - ``sam.Sam1`` / ``sam.Sam2`` / ``sam.Sam3`` adapters
      - `rankseg_with_sam_family.ipynb <https://github.com/rankseg/rankseg/blob/main/notebooks/rankseg_with_sam_family.ipynb>`__
+   * - MONAI
+     - You use MONAI transforms and want a medical-imaging example.
+     - Optional third-party ``RankSEG`` / ``RankSEGd`` wrappers
+     - `Official MONAI RankSEG tutorial <https://github.com/Project-MONAI/tutorials/blob/main/modules/rankseg_integration.ipynb>`__
    * - PaddleSeg
      - You use PaddleSeg and can work from the external integration branch.
      - Convert Paddle probabilities to a PyTorch tensor, then call RankSEG.
@@ -91,6 +103,8 @@ Choose your path
 - Start with :doc:`integrations_sam` for SAM-family models, because SAM
   outputs include family-specific geometry restoration before the final mask
   step.
+- Start with :doc:`integrations_monai` for the official MONAI tutorial using
+  optional third-party RankSEG array and dictionary transforms.
 - Start with :doc:`integrations_paddleseg` only when your deployment is already
   in PaddleSeg. It is currently linked as an external/community-maintained
   integration path.
@@ -121,6 +135,7 @@ Tutorial pages
    integrations_pytorch
    integrations_transformers
    integrations_sam
+   integrations_monai
    integrations_paddleseg
 
 Common mistakes
@@ -129,8 +144,10 @@ Common mistakes
 - Passing raw logits directly to ``RankSEG``. Use ``softmax`` for multiclass
   probabilities or ``sigmoid`` for multilabel probabilities first.
 - Mixing output semantics. ``output_mode="multiclass"`` returns
-  ``(B, *image_shape)`` class-index masks, while ``output_mode="multilabel"``
-  returns ``(B, C, *image_shape)`` binary masks.
+  ``torch.int64`` class-index masks with shape ``(B, *image_shape)``, while
+  ``output_mode="multilabel"`` returns ``torch.bool`` binary masks with shape
+  ``(B, C, *image_shape)``. The output dtype does not depend on the input
+  floating-point dtype or solver.
 - Using SAM outputs with the generic Transformers helper. SAM-family models
   require the explicit adapters documented in :doc:`integrations_sam`.
 - Comparing against a dataset-level Dice definition without checking

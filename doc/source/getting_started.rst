@@ -1,7 +1,10 @@
 Getting Started
 ===============
 
-RankSEG helps you get better segmentation masks from your models. It's a simple post-processing tool that improves your predictions during inference by using smart ranking methods, making your results more accurate for common segmentation metrics like Dice and IoU—without requiring any model retraining.
+RankSEG is a metric-aware post-processing tool designed to improve samplewise
+Dice or IoU during inference without model retraining. Its effect depends on
+the quality of the input probabilities and should be validated on representative
+data.
 
 Official Integration Paths
 --------------------------
@@ -18,6 +21,8 @@ segmentation model and want to replace ``argmax`` with RankSEG.
 If you already run Hugging Face semantic-segmentation models through
 ``processor -> model -> outputs``, start with :doc:`integrations_transformers`.
 For SAM-family outputs, start with :doc:`integrations_sam`.
+For a medical-imaging workflow using MONAI transforms, start with the official
+tutorial described in :doc:`integrations_monai`.
 
 Installation
 ------------
@@ -31,7 +36,7 @@ Install RankSEG using pip:
 Why RankSEG?
 ------------
 
-Standard approaches like argmax (for multiclass) or 0.5 thresholding (for binary/multilabel) don't directly optimize for segmentation metrics like Dice or IoU. RankSEG bridges this gap by using statistically consistent ranking methods that are specifically designed to maximize your target metric. This means better segmentation quality, especially when:
+Standard approaches like argmax (for multiclass) or 0.5 thresholding (for binary/multilabel) don't directly optimize for segmentation metrics like Dice or IoU. RankSEG bridges this gap with statistically consistent ranking methods designed to target the selected metric. Improvements are most likely to be useful when:
 
 - Your model outputs uncertain probabilities
 - You're working with complex segmentation tasks
@@ -45,6 +50,12 @@ In most semantic segmentation problems, models typically output **multiclass** p
 .. note::
    RankSEG expects probabilities in range ``[0, 1]``. If your model outputs raw logits (unbounded values), apply the appropriate activation function first: ``torch.softmax(logits, dim=1)`` for multiclass or ``torch.sigmoid(logits)`` for multilabel/binary segmentation.
 
+.. note::
+   RankSEG accepts float16, bfloat16, float32, and float64 probability tensors.
+   Solver calculations promote float16 and bfloat16 to float32 for numerical
+   stability, while float32 and float64 retain their supplied precision. Output
+   masks still use the boolean or integer dtype defined by ``output_mode``.
+
 Here's how to use RankSEG to make segmentation predictions that target the Dice/IoU metric:
 
 .. code-block:: python
@@ -53,7 +64,7 @@ Here's how to use RankSEG to make segmentation predictions that target the Dice/
     import torch.nn.functional as F
     from rankseg import RankSEG
     ## input: `images` (batch_size, num_channels, *image_shape) is the input image tensor
-    ## output: `preds` (batch_size, *image_shape) is the output binary mask tensor
+    ## output: `preds` (batch_size, *image_shape) is an integer class-index map
 
     # Load your trained segmentation model
     model = torch.load('trained_model.pth')
@@ -65,10 +76,13 @@ Here's how to use RankSEG to make segmentation predictions that target the Dice/
     probs = F.softmax(logits, dim=1)
 
     # Make segmentation prediction targeting the Dice metric
-    rankseg = RankSEG(metric='dice')  # or 'iou', 'acc'
+    rankseg = RankSEG(metric='dice')  # use metric='iou' for IoU
     preds = rankseg(probs)            # shape: (batch_size, *image_shape)
 
-The above code handles **99% of semantic segmentation use cases** where we have multiclass probabilities ``probs`` and want non-overlapping predictions (``output_mode='multiclass'``). The older ``rankseg.predict(probs)`` form remains supported.
+The above code covers the common semantic segmentation case where multiclass
+probabilities ``probs`` should become non-overlapping predictions
+(``output_mode='multiclass'``). The older ``rankseg.predict(probs)`` form remains
+supported.
 
 You can also use the functional API for one-off prediction:
 
@@ -78,11 +92,17 @@ You can also use the functional API for one-off prediction:
 
     preds = rankseg(probs, metric='dice')  # shape: (batch_size, *image_shape)
 
+.. note::
+   RankSEG is a discrete inference-time post-processing operation. Its public
+   prediction functions disable PyTorch gradient recording internally, even
+   when ``probs.requires_grad`` is ``True``. Returned boolean masks and integer
+   class maps therefore do not participate in backpropagation.
+
 **Key Benefits:**
 
-- ✅ **No retraining required** - Works with any pre-trained prob-outcome segmentation model
+- ✅ **No retraining required** - Works with pre-trained probabilistic segmentation models
 - ✅ **Metric-aware** - Directly optimizes for your target metric (Dice, IoU, or Accuracy)
-- ✅ **Statistically consistent** - Theoretically guaranteed to improve performance
+- ✅ **Statistically grounded** - Consistent for the target metric under the method's assumptions
 - ✅ **Easy integration** - Just 2 lines of code to add to your inference pipeline
 
 Advanced Use Cases
@@ -191,18 +211,20 @@ For these cases, see the examples below organized by probability type and desire
           .. code-block:: python
 
               import torch
-              import torch.nn.functional as F
               from rankseg import RankSEG
               ## input: `images` (batch_size, num_channels, *image_shape) is the input image tensor
-              ## output: `preds` (batch_size, num_classes, *image_shape) is the output binary mask tensor
+              ## output: `preds` (batch_size, *image_shape) is the output 0/1 class-index tensor
 
               # Load your trained segmentation model
               model = torch.load('trained_model.pth')
               model.eval()
 
-              ## `probs` (batch_size, num_classes=1, *image_shape) is the model output probability tensor
+              ## `foreground_probs` (batch_size, 1, *image_shape) is the model output probability tensor
               logits = model(images)
-              probs = F.sigmoid(logits)
+              foreground_probs = torch.sigmoid(logits)
+
+              # Multiclass output needs explicit background and foreground channels.
+              probs = torch.cat((1 - foreground_probs, foreground_probs), dim=1)
 
               # Make segmentation prediction target the Dice metric
               ## you can also use `IoU` or `Acc` as the target metric
@@ -210,7 +232,11 @@ For these cases, see the examples below organized by probability type and desire
               preds = rankseg.predict(probs)  # (batch, *image_shape)
 
 .. note::
-   For binary segmentation, when ``num_classes=1`` for ``probs``, the ``preds`` output is identical for both ``output_mode='multiclass'`` and ``output_mode='multilabel'``.
+   For binary segmentation, a single probability channel represents the foreground
+   mask and should use ``output_mode='multilabel'``. With RMA,
+   ``output_mode='multiclass'`` returns class indices; a one-channel input has only
+   class index 0 and therefore cannot represent foreground label 1. To obtain a
+   multiclass 0/1 label map, pass two channels ``torch.cat((1 - probs, probs), dim=1)``.
 
 
 ⚙️ Advanced Configuration
@@ -221,14 +247,16 @@ Output Mode: Overlapping vs Non-overlapping
 
 RankSEG can produce either overlapping (multilabel) or non-overlapping (multiclass) masks via ``output_mode``, regardless of the input ``probs`` mode:
 
-- **Non-overlapping (multiclass)**: Set ``output_mode='multiclass'``. Each pixel belongs to exactly one class.
+- **Non-overlapping (multiclass)**: Set ``output_mode='multiclass'``. Each pixel belongs to exactly one class. With RMA, the per-class binary masks are converted using the rules below.
 
   - Output shape: ``(batch, *image_shape)``
+  - Output dtype: ``torch.int64`` (class indices)
   - Use for: Standard semantic segmentation where classes are mutually exclusive
 
-- **Overlapping (multilabel)**: Set ``output_mode='multilabel'``. Pixels may belong to multiple classes.
+- **Overlapping (multilabel)**: Set ``output_mode='multilabel'``. Pixels may belong to multiple classes. RMA returns its per-class binary masks directly and does not resolve overlaps.
 
   - Output shape: ``(batch, num_classes, *image_shape)``
+  - Output dtype: ``torch.bool`` (binary mask per class)
   - Use for: Instance segmentation, medical imaging, or when objects can overlap
 
 
@@ -245,6 +273,52 @@ Example:
    # Overlapping masks (multi-label)
    rankseg = RankSEG(metric='dice', output_mode='multilabel')
    preds = rankseg.predict(probs)  # (batch, num_classes, *image_shape)
+
+
+How RMA converts overlapping masks to multiclass output
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+RMA first optimizes one binary mask per class. Converting those masks to
+``output_mode='multiclass'`` uses the number of masks that selected each pixel:
+
+.. list-table::
+   :widths: 18 34 48
+   :header-rows: 1
+
+   * - Selecting masks
+     - Eligible classes
+     - Multiclass result
+   * - Exactly one
+     - The selecting class
+     - Use that class directly.
+   * - Two or more
+     - Only the classes whose binary masks selected the pixel
+     - Use the eligible class with the largest incremental score. A class that
+       did not select the pixel cannot win, even if its unconstrained score or
+       probability is larger.
+   * - None
+     - Active classes when ``unassigned_policy='max_score'``
+     - Use the active class with the largest incremental score. With
+       ``unassigned_policy='void'``, use ``void_index`` instead. The void index
+       must fit in ``torch.int64`` and lie outside ``[0, num_classes)`` so it
+       cannot be confused with a valid class prediction.
+
+Here, an *active class* has a maximum probability strictly greater than
+``pruning_prob``; a class whose probabilities are all less than or equal to the
+threshold is pruned. If every class in a sample is pruned, the ``max_score``
+fallback reconsiders all classes for otherwise unassigned pixels. This fallback
+does not change the overlap rule: a pruned class cannot have selected a pixel.
+
+The incremental score is the RMA objective change from assigning the pixel to
+a class after fixing pixels selected by exactly one mask. It is not simply the
+pixel probability or a probability ``argmax``. Equal scores are resolved by
+the lowest eligible class index.
+
+For example, suppose the masks selecting a pixel are
+``[False, True, True]``. Classes 1 and 2 compete by incremental score; class 0
+is ineligible even if it has the largest unconstrained score. This conversion
+is skipped entirely for ``output_mode='multilabel'``, where both selected masks
+remain ``True``.
 
 
 Solver Selection
@@ -270,12 +344,12 @@ RankSEG offers multiple solver algorithms, each optimized for specific metrics a
      - Dice
      - ``'multilabel'``
      - Fast
-     - Blind Approximation. Best for Dice metric when speed is critical. Requires ``eps`` (error tolerance for the normal approximation).
+     - Blind Approximation. Best for Dice metric when speed is critical. ``eps`` sets the tail probability excluded from the retained refined-normal interval.
    * - ``'TRNA'``
      - Dice
      - ``'multilabel'``
      - Slow
-     - Truncated Refined Normal Approximation. More accurate than BA for complex cases. Requires ``eps`` (error tolerance for the normal approximation).
+     - Truncated Refined Normal Approximation. More accurate than BA for complex cases. ``eps`` sets the tail probability excluded from the retained refined-normal interval.
    * - ``'BA+TRNA'``
      - Dice
      - ``'multilabel'``
@@ -288,9 +362,10 @@ RankSEG offers multiple solver algorithms, each optimized for specific metrics a
      - Truncation solver: truncate at 0.5 threshold for binary and multilabel.
    * - ``'argmax'``
      - Acc
-     - ``'multiclass'``
+     - ``'multiclass'``, ``'multilabel'``
      - Fastest
-     - Argmax solver: argmax over classes.
+     - Argmax solver: argmax over classes. In ``'multilabel'`` mode it returns
+       non-overlapping one-hot masks in multilabel tensor format.
 
 Example with solver parameters:
 
@@ -298,20 +373,39 @@ Example with solver parameters:
 
    from rankseg import RankSEG
 
-   # RMA solver (default, works for all metrics)
+   # RMA solver (default; supports Dice and IoU)
    rankseg = RankSEG(metric='dice', solver='RMA')
 
    # BA solver with custom epsilon
-   rankseg = RankSEG(metric='dice', solver='BA', eps=1e-4)
+   rankseg = RankSEG(metric='dice', solver='BA', output_mode='multilabel', eps=1e-4)
 
    # Automatic solver selection
-   rankseg = RankSEG(metric='dice', solver='BA+TRNA', eps=1e-4)
+   rankseg = RankSEG(metric='dice', solver='BA+TRNA', output_mode='multilabel', eps=1e-4)
+
+   # Accuracy requires an explicit compatible solver
+   rankseg = RankSEG(metric='accuracy', solver='argmax', output_mode='multiclass')
+
+Solver compatibility is checked strictly. RankSEG raises an error for an
+unsupported metric, output mode, and solver combination instead of silently
+substituting another solver.
+
+``smooth`` and ``pruning_prob`` affect the Dice and IoU solvers only. Accuracy
+uses ``argmax`` or a fixed ``0.5`` threshold, so valid values supplied for
+``smooth`` and ``pruning_prob`` through the shared API do not affect Accuracy
+predictions.
 
 
-GPU Acceleration
-----------------
+Device behavior
+---------------
 
-RankSEG automatically uses GPU if your ``probs`` tensors are on GPU:
+RankSEG returns predictions on the same device as ``probs``. RMA runs natively
+on that device. For Dice multilabel solvers on an accelerator, BA retains
+ranking and convolution on the input device. TRNA and BA+TRNA also retain
+ranking and scoring there, while their SciPy-backed probability calculations
+are staged through the CPU and copied back in bounded chunks to avoid a device
+transfer and synchronization for every search step. This applies to accelerator
+backends such as CUDA, MPS, and XPU; backend support for individual floating-point
+dtypes still follows PyTorch.
 
 .. code-block:: python
 
@@ -325,7 +419,7 @@ RankSEG automatically uses GPU if your ``probs`` tensors are on GPU:
    model = model.to(device)
    images = images.to(device)
 
-   # Get predictions (RankSEG will use GPU automatically)
+   # RMA runs on the same device as the probabilities
    logits = model(images)
    probs = F.softmax(logits, dim=1)
 
@@ -343,7 +437,9 @@ Best Practices
 
 4. **For small images**: Consider using BA, TRNA, or BA+TRNA solvers for Dice metric to achieve better accuracy.
 
-5. **Enable GPU acceleration**: For large images or batches, ensure your tensors are on GPU for faster processing.
+5. **Choose devices deliberately**: RMA and large BA problems can benefit from
+   CUDA. TRNA is sequential and may remain faster on CPU for small inputs, so
+   benchmark representative shapes in latency-sensitive pipelines.
 
 ❓ FAQ
 ------
@@ -361,19 +457,32 @@ A: Use multiclass (``output_mode='multiclass'``) when classes are mutually exclu
 
 **Q: Which solver should I choose?**
 
-A: Start with ``'RMA'`` for most cases. For Dice metric on small images, try ``'BA'``, ``'TRNA'``, or ``'BA+TRNA'`` for potentially better accuracy. For Accuracy metric, use ``'argmax'`` for multiclass or ``'TR'`` for multilabel.
+A: Start with ``'RMA'`` for Dice or IoU. For Dice metric on small images, try
+``'BA'``, ``'TRNA'``, or ``'BA+TRNA'`` with ``output_mode='multilabel'`` for
+potentially better accuracy. For Accuracy metric, explicitly use ``'argmax'``
+for multiclass or ``'TR'`` for multilabel.
 
 **Q: What does the ``eps`` parameter do?**
 
-A: The ``eps`` parameter controls the error tolerance for normal approximation in BA, TRNA, and BA+TRNA solvers. Smaller values (e.g., ``1e-5``) give more accurate results but slower computation. Default is ``1e-4``.
+A: For BA, TRNA, and BA+TRNA, ``eps`` is the tail probability excluded when
+retaining the central ``1 - eps`` refined-normal interval. Smaller values
+(e.g., ``1e-5``) retain wider PMF support, reducing truncation at the cost of
+additional computation. The default is ``1e-4``.
 
 **Q: Can I use RankSEG with binary segmentation?**
 
-A: Yes! For binary segmentation, set your ``probs`` shape to ``(batch, 1, *image_shape)`` and use ``output_mode='multiclass'`` or ``output_mode='multilabel'`` (they produce identical results for binary cases).
+A: Yes. For a single foreground-probability channel with shape
+   ``(batch, 1, *image_shape)``, use ``output_mode='multilabel'`` to obtain a
+   binary foreground mask. If you need a ``(batch, *image_shape)`` multiclass
+   label map containing labels 0 and 1, construct two-channel background/foreground
+   probabilities with ``torch.cat((1 - probs, probs), dim=1)`` and use
+   ``output_mode='multiclass'``.
 
 **Q: Does RankSEG require retraining my model?**
 
-A: No! RankSEG is a post-processing method that works with any pre-trained prob-outcome segmentation model. Simply apply it to your model's probability outputs during inference.
+A: No. RankSEG is a post-processing method for pre-trained probabilistic
+   segmentation models. Apply it to the model's probability outputs during
+   inference.
 
 ----
 

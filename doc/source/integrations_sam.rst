@@ -60,7 +60,11 @@ Recommended RankSEG options
 
 SAM prompt and instance masks are naturally represented as per-mask binary
 probability maps, so the adapters default to ``output_mode="multilabel"`` when
-``rankseg_kwargs`` does not specify an output mode.
+``rankseg_kwargs`` does not specify an output mode. Prediction masks have dtype
+``torch.bool`` and retain their per-mask geometry. ``output_mode="multiclass"``
+is rejected: SAM's multiple prompt masks or instances are independent binary
+masks, not semantic class channels that can be collapsed into one class-index
+map.
 
 .. code-block:: python
 
@@ -83,6 +87,8 @@ SAM1 prompt masks
 ``original_sizes`` and ``reshaped_input_sizes`` should come from the SAM
 processor inputs. The adapter removes padding, resizes masks back to the
 original image size, applies ``sigmoid``, and then calls RankSEG.
+Each size must contain two positive integers, and each reshaped input size must
+fit inside ``pad_size``.
 
 SAM2 prompt masks
 -----------------
@@ -100,7 +106,8 @@ SAM2 prompt masks
 
 Set ``apply_non_overlapping_constraints=True`` when you want lower-scoring
 overlapping SAM2 masks to be suppressed before converting logits to
-probabilities.
+probabilities. This option must be a boolean; string values such as ``"false"``
+are rejected instead of being interpreted as truthy.
 
 SAM3 instance masks
 -------------------
@@ -115,7 +122,9 @@ SAM3 instance masks
 
 The instance method returns one dictionary per image with ``scores``, ``boxes``,
 and ``masks``. ``threshold`` filters low-confidence instances before RankSEG is
-applied to the remaining mask probabilities.
+applied to the remaining mask probabilities. It must be finite and in
+``[0, 1]``. Filtering is strict: an instance is retained only when
+``score > threshold``.
 
 SAM3 semantic masks
 -------------------
@@ -136,6 +145,11 @@ step. For SAM3, callers choose ``postprocess_instance(...)`` or
 Shape conventions
 -----------------
 
+All ``original_sizes``, ``reshaped_input_sizes``, and ``target_sizes`` values
+use ``(height, width)`` order, contain positive integers, and provide one entry
+per batch item. Tensor size inputs use shape ``(2,)`` for a single image or
+``(B, 2)`` for a batch.
+
 .. list-table::
    :widths: 28 34 38
    :header-rows: 1
@@ -155,6 +169,37 @@ Shape conventions
    * - RankSEG semantic predictions
      - One tensor per image
      - Final semantic masks from SAM3 semantic probabilities.
+
+SAM1/SAM2 prompt outputs require ``pred_masks`` with shape ``(B, N, H, W)`` or
+``(B, P, N, H, W)``. Their ``iou_scores`` field is not used to reconstruct
+mask probabilities and may be omitted from cached or reduced outputs. SAM3
+instance outputs use ``pred_logits: (B, Q)``, ``pred_boxes: (B, Q, 4)``, and
+``pred_masks: (B, Q, H, W)``; optional ``presence_logits`` uses ``(B, 1)``.
+SAM3 semantic logits use ``(B, 1, H, W)``. Related tensors must agree on batch,
+query, and device dimensions.
+
+Each adapter accepts the native Transformers ``ModelOutput`` as well as a
+mapping or attribute-based structured object containing the required fields.
+This allows cached and wrapped outputs without depending on an exact Python
+class name. When a native output or subclass can be identified as belonging to
+a different SAM generation, the adapter rejects it rather than applying the
+wrong family's resize geometry. Tuple-style ``return_dict=False`` outputs
+remain unsupported because their positional field layout is ambiguous across
+model families.
+
+SAM model outputs must use a real floating-point dtype and contain only finite
+values; NaN and positive or negative infinity are rejected rather than being
+propagated into masks or silently filtered as low-confidence instances.
+Probability restoration promotes ``float16`` and ``bfloat16`` to ``float32``
+for stable computation, while preserving ``float32`` and ``float64``
+precision. Scores, boxes, and mask probabilities therefore retain the
+appropriate working precision instead of being unconditionally converted to
+``float32``.
+
+When SAM3 instance filtering retains no masks, the returned empty mask tensor
+keeps its low-resolution spatial shape, matching the Transformers processor
+contract; resizing is performed only when at least one mask remains. Empty
+input batches are supported and return empty lists.
 
 Restored probabilities
 ----------------------

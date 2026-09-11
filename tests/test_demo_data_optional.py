@@ -61,7 +61,7 @@ def test_demo_data_accuracy_regression(demo_data_from_files):
     assert preds_argmax.dtype == torch.int64
     assert torch.equal(preds_argmax, torch.argmax(probs, dim=1))
 
-    expected_tr = torch.where(probs > 0.5, 1, 0)
+    expected_tr = probs > 0.5
     assert preds_tr.shape == probs.shape
-    assert preds_tr.dtype == expected_tr.dtype
+    assert preds_tr.dtype == torch.bool
     assert torch.equal(preds_tr, expected_tr)

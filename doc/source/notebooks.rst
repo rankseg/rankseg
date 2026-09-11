@@ -25,6 +25,10 @@ standard segmentation prediction step.
        geometry restoration before RankSEG is called.
      - Users working with prompt, instance, or semantic masks from SAM-family
        models.
+   * - `MONAI rankseg_integration.ipynb <https://github.com/Project-MONAI/tutorials/blob/main/modules/rankseg_integration.ipynb>`__
+     - The official MONAI tutorial for optional third-party RankSEG and RankSEGd
+       post-processing transforms on a pretrained 3D pancreas segmentation model.
+     - MONAI users working with array or dictionary transform pipelines.
    * - `rankseg_with_paddleseg.ipynb <https://github.com/rankseg/rankseg/blob/main/notebooks/rankseg_with_paddleseg.ipynb>`__
      - A PaddleSeg-oriented walkthrough that shows the probability conversion
        step before calling the PyTorch-based RankSEG predictor.
@@ -36,6 +40,7 @@ Colab links
 - `Open quickstart.ipynb in Colab <https://colab.research.google.com/github/rankseg/rankseg/blob/main/notebooks/quickstart.ipynb>`_
 - `Open rankseg_with_transformers.ipynb in Colab <https://colab.research.google.com/github/rankseg/rankseg/blob/main/notebooks/rankseg_with_transformers.ipynb>`_
 - `Open rankseg_with_sam_family.ipynb in Colab <https://colab.research.google.com/github/rankseg/rankseg/blob/main/notebooks/rankseg_with_sam_family.ipynb>`_
+- `Open the official MONAI RankSEG tutorial in Colab <https://colab.research.google.com/github/Project-MONAI/tutorials/blob/main/modules/rankseg_integration.ipynb>`_
 - `Open rankseg_with_paddleseg.ipynb in Colab <https://colab.research.google.com/github/rankseg/rankseg/blob/main/notebooks/rankseg_with_paddleseg.ipynb>`_
 
 How to read the notebooks with the docs

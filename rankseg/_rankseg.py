@@ -7,8 +7,8 @@ from rankseg.functional import rankseg
 class RankSEG(object):
     r"""RankSEG segmentation prediction module for optimizing segmentation metrics :cite:p:`dai2023rankseg`, :cite:p:`wang2025rankseg`.
 
-    This class provides methods to convert probability maps into segmentation
-    predictions by optimizing segmentation metrics like AP, Dice, IoU, and Accuracy.
+    This class converts probability maps into segmentation predictions targeting
+    the supported Dice, IoU, and Accuracy metrics.
 
     Parameters
     ----------
@@ -23,7 +23,9 @@ class RankSEG(object):
 
     smooth : float, default=0.0
         Smoothing parameter added to numerator and denominator to avoid
-        division by zero and improve numerical stability.
+        division by zero and improve numerical stability. Must be finite and
+        greater than or equal to 0. This parameter affects Dice and IoU only;
+        valid values are accepted but ignored when optimizing Accuracy.
 
     output_mode : {'multiclass', 'multilabel'}, default='multiclass'
         String values are matched case-insensitively after stripping leading
@@ -32,6 +34,11 @@ class RankSEG(object):
         - 'multiclass': non-overlapping; each pixel belongs to exactly one class.
         - 'multilabel': overlapping; pixels can belong to multiple classes (binary mask per class).
 
+        For single-channel binary probabilities, use 'multilabel' to obtain a
+        foreground mask. To obtain a multiclass 0/1 label map, provide two
+        channels containing background and foreground probabilities;
+        single-channel 'multiclass' input is rejected.
+
     solver : str, default='RMA'
         String values are matched case-insensitively after stripping leading
         and trailing whitespace.
@@ -39,11 +46,10 @@ class RankSEG(object):
 
         - When metric is 'dice':
 
-          - 'exact': Exact solver (not yet implemented)
-          - 'BA': Blind approximation
-          - 'TRNA': Truncated refined normal approximation
-          - 'BA+TRNA': Automatically select from 'BA' or 'TRNA' solver based on data information
-          - 'RMA': Reciprocal moment approximation
+          - 'BA': Blind approximation, for 'multilabel' output
+          - 'TRNA': Truncated refined normal approximation, for 'multilabel' output
+          - 'BA+TRNA': Automatically select from 'BA' or 'TRNA', for 'multilabel' output
+          - 'RMA': Reciprocal moment approximation, for 'multiclass' or 'multilabel' output
 
         - When metric is 'IoU':
 
@@ -51,33 +57,47 @@ class RankSEG(object):
 
         - When metric is 'Acc':
 
-          - 'argmax': argmax solver
-          - 'TR': truncation solver
+          - 'argmax': argmax solver, required for 'multiclass' output; with
+            multi-channel 'multilabel' output it returns non-overlapping one-hot masks
+          - 'TR': truncation solver, for single-channel or 'multilabel' output
+
+        Unsupported metric, output mode, and solver combinations raise an
+        error; RankSEG does not silently substitute a different solver.
 
     pruning_prob : float, default=0.5
         Probability threshold for pruning. Classes with maximum probability
-        below this threshold may be skipped to improve efficiency.
-        Should be in range [0, 1].
+        less than or equal to this threshold are skipped to improve efficiency.
+        Must be finite and lie in the range [0, 1]. This parameter affects
+        Dice and IoU only; valid values are accepted but ignored when optimizing
+        Accuracy.
 
     \*\*solver_params : dict
         Additional parameters passed to the specific solver.
-        For 'BA', 'TRNA' or 'BA+TRNA': eps (1 - confidence intervals for refined
-        normal approximation of poisson-binomial distributions).
-        For 'RMA': unassigned_policy and void_index control multiclass output
-        for pixels not selected as positive by any class.
+        For 'BA', 'TRNA' or 'BA+TRNA', ``eps`` is the tail probability used to
+        retain the central ``1 - eps`` refined-normal interval; it must be
+        finite and lie strictly between 0 and 1.
+        For 'RMA', overlapping binary masks are resolved by the largest
+        incremental score among the classes that selected the pixel; a class
+        that did not select the pixel cannot win. The score is the RMA
+        objective change from assigning the pixel, not its raw probability.
+        unassigned_policy and void_index control pixels selected by no class.
+        With 'max_score', all classes are reconsidered if pruning removes every
+        class in a sample. A void index must fit in ``torch.int64`` and lie
+        outside the valid class index range.
+        Unsupported parameters raise an error rather than being ignored.
 
     References
     ----------
     :cite:p:`dai2023rankseg` Dai, B., & Li, C. (2023). Rankseg: a consistent ranking-based framework for segmentation. Journal of Machine Learning Research, 24(224), 1-50.
 
-    :cite:p:`wang2025rankseg` Wang, Z., & Dai, B. (2025). RankSEG-RMA: An Efficient Segmentation Algorithm via Reciprocal Moment Approximation. arXiv preprint arXiv:2510.15362.
+    :cite:p:`wang2025rankseg` Wang, Z., & Dai, B. (2025). RankSEG-RMA: An Efficient Segmentation Algorithm via Reciprocal Moment Approximation. Advances in Neural Information Processing Systems (NeurIPS 2025).
 
     Examples
     --------
     >>> import torch
     >>> from rankseg import RankSEG
     >>>
-    >>> # Create segmentation model
+    >>> # Create a RankSEG prediction-time postprocessor
     >>> rankseg = RankSEG(metric='dice', output_mode='multilabel', solver='BA', pruning_prob=0.5, eps=1e-4)
     >>>
     >>> # Generate predictions from probability maps
@@ -108,21 +128,20 @@ class RankSEG(object):
         ----------
         probs : torch.Tensor
             Probability maps of shape (batch_size, num_class, \*image_shape).
-            Values must be finite and lie in the range [0, 1].
+            Must use a real floating-point dtype. Values must be finite and lie
+            in the range [0, 1]. The class and spatial dimensions must be
+            non-empty; an empty batch is allowed.
             image_shape has no restriction on the number of dimensions,
             can be (height, width) for 2D images, or (height, width, depth) for 3D images, or others.
 
         Returns
         -------
         preds : torch.Tensor
-            If `output_mode == "multilabel"`, returns binary masks of shape
-            (batch_size, num_class, \*image_shape).
+            If `output_mode == "multilabel"`, returns boolean masks of shape
+            (batch_size, num_class, \*image_shape) with dtype ``torch.bool``.
 
-            If `output_mode == "multiclass"`, returns class index maps of shape
-            (batch_size, \*image_shape).
-
-            Depending on the selected solver, the returned dtype may be boolean
-            or integer.
+            If `output_mode == "multiclass"`, returns class-index maps of shape
+            (batch_size, \*image_shape) with dtype ``torch.int64``.
         """
         return self(probs)
 

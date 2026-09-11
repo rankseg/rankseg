@@ -44,9 +44,22 @@
 .. _Docs: https://rankseg.readthedocs.io/en/latest/
 
 
-**RankSEG** is a statistically consistent framework for semantic segmentation that provides *plug-and-play* modules to improve segmentation results during inference.
+**RankSEG** is a statistically grounded framework for semantic segmentation that
+provides *plug-and-play* modules designed to improve samplewise Dice/IoU during
+inference without retraining.
 
-RankSEG-based methods are theoretically-grounded segmentation approaches that are **statistically consistent** with respect to popular segmentation metrics like **Dice** and **IoU**. They provide *almost guaranteed* improved performance over traditional thresholding or argmax segmentation methods.
+RankSEG-based methods are **statistically consistent** with respect to Dice and
+IoU under the method's assumptions. Actual gains depend on the quality of the
+input probabilities and the deployment distribution, so compare RankSEG with
+the baseline decoder on representative data.
+
+.. admonition:: News — August 2026
+
+   RankSEG is now featured in the official `MONAI RankSEG integration tutorial
+   <https://github.com/Project-MONAI/tutorials/blob/main/modules/rankseg_integration.ipynb>`_
+   as optional third-party array and dictionary post-processing transforms. The
+   notebook is also available in `Google Colab
+   <https://colab.research.google.com/github/Project-MONAI/tutorials/blob/main/modules/rankseg_integration.ipynb>`_.
 
 .. note::
     RankSEG optimizes metrics using a *samplewise* aggregation: the score is computed per sample and then averaged across the dataset (akin to ``aggregation_level='samplewise'`` in `TorchMetrics DiceScore <https://lightning.ai/docs/torchmetrics/stable/segmentation/dice.html>`_). See :ref:`metrics` for details.
@@ -60,7 +73,7 @@ Key Properties
     * - **🎯 Metric-Optimized**
       - Directly optimizes for Dice or IoU metrics instead of using generic ad-hoc `argmax` during inference.
     * - **🔌 Plug-and-Play**
-      - Works with ANY pre-trained prob-outcome segmentation model without retraining
+      - Works with pre-trained probabilistic segmentation models without retraining
     * - **⚡ Efficient Solvers**
       - Multiple solver options (BA, TRNA, RMA) for different speed-accuracy trade-offs
     * - **🧩 Flexible Tasks**
@@ -107,7 +120,8 @@ Traditional segmentation methods use **argmax** or **thresholding** to convert m
 
 **Performance Improvements Across Models and Datasets:**
 
-RankSEG consistently outperforms standard argmax prediction without any model retraining:
+The NeurIPS 2025 benchmarks below report improvements over standard argmax
+without model retraining:
 
 .. list-table::
    :widths: 25 20 12 12 12 12
@@ -178,6 +192,8 @@ RankSEG consistently outperforms standard argmax prediction without any model re
 
 .. note::
     Results from our `NeurIPS 2025 paper <https://openreview.net/forum?id=4tRMm1JJhw>`_. RankSEG uses Dice metric with RMA solver.
+    Results can vary with probability quality, metric definition, and deployment
+    distribution; validate the decoder on representative data.
 
 
 Learn More
@@ -196,13 +212,13 @@ Learn More
       :link: integrations
       :link-type: doc
 
-      Maintained integration guides for PyTorch, Transformers, and SAM
+      Integration guides for PyTorch, Transformers, SAM, and MONAI
 
    .. grid-item-card:: 📓 Executable Notebooks
       :link: notebooks
       :link-type: doc
 
-      Notebook tutorials for quickstart, Transformers, SAM, and PaddleSeg
+      Notebook tutorials for quickstart, Transformers, SAM, MONAI, and PaddleSeg
 
    .. grid-item-card:: 📚 API Reference
       :link: API

@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=77.0.3", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
@@ -11,7 +15,7 @@ omit = ["tests/*"]
 [tool.coverage.report]
 show_missing = true
 precision = 2
-fail_under = 0
+fail_under = 85
 
 [tool.coverage.xml]
 output = "coverage.xml"
@@ -21,7 +25,7 @@ name = "cz_conventional_commits"
 
 [tool.ruff]
 line-length = 120
-target-version = "py39"
+target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I"]

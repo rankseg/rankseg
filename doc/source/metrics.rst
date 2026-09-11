@@ -38,7 +38,11 @@ Properties
 **********
 
 - **Range**: Both Dice and IoU have range :math:`[0, 1]`, where 1 indicates perfect overlap and 0 indicates no overlap.
-- **Smoothing**: :math:`\gamma` (controlled via ``smooth`` parameter) prevents division by zero. A small value of ``smooth`` is added to the numerator and denominator of both metrics. This helps to avoid division by zero and mitigates the effect of classes with very few positive pixels.
+- **Smoothing**: :math:`\gamma` (controlled via ``smooth`` parameter) prevents division by zero.
+  A small value of ``smooth`` is added to the numerator and denominator of both metrics. This helps
+  to avoid division by zero and mitigates the effect of classes with very few positive pixels. When
+  ``smooth > 0``, RankSEG also compares the nonzero score of an empty per-class mask
+  (:math:`\tau=0`) during volume selection.
 
 .. note::
 

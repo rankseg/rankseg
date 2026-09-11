@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🧩 RankSEG: 无需重新训练即可瞬间提升分割模型的 Dice/IoU 指标
+# 🧩 RankSEG：无需重新训练的 Dice/IoU 指标感知后处理
 
 [![PyPI](https://badge.fury.io/py/rankseg.svg)](https://pypi.org/project/rankseg/)
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
@@ -16,13 +16,19 @@
 [![NeurIPS](https://img.shields.io/badge/NeurIPS-2025-black.svg)](https://openreview.net/pdf?id=4tRMm1JJhw)
 [![English Documentation](https://img.shields.io/badge/English-EN-blue)](https://github.com/rankseg/rankseg/blob/main/README.md)
 
+[**新闻**](#-新闻) | [**快速开始**](#-快速开始) | [**官方集成路径**](#-官方集成路径) | [**主要特性**](#-主要特性) | [**Benchmarks**](#-benchmarks) | [**引用**](#-引用)
+
 </div>
 
 ---
 
-**RankSEG** 是一个**即插即用**的后处理模块，可在推理过程中改善分割结果。它适用于**任何预训练的概率输出分割模型**（SAM, DeepLab, SegFormer, UPerNet 等），无需任何重新训练或微调。
+## 📰 新闻
 
-不像使用简单的`阈值化`或`argmax`（这些方法不关心 Dice/IoU 分数），RankSEG 直接针对这些指标进行优化，从而为您提供更好的结果，而无需任何额外的训练。
+- **2026 年 8 月——RankSEG 已正式收录于 MONAI 官方 Tutorials！** 教程展示了如何将 RankSEG 和 RankSEGd 作为可选的第三方后处理 transform 接入 MONAI，并在预训练的 3D 胰腺分割模型上与 argmax 进行比较。[查看教程](https://github.com/Project-MONAI/tutorials/blob/main/modules/rankseg_integration.ipynb) · [在 Colab 中运行](https://colab.research.google.com/github/Project-MONAI/tutorials/blob/main/modules/rankseg_integration.ipynb)
+
+**RankSEG** 是一个**即插即用**的后处理模块，旨在推理阶段改善 samplewise Dice/IoU。它适用于多种预训练的概率输出分割模型（SAM、DeepLab、SegFormer、UPerNet 等），无需重新训练或微调。
+
+简单的`阈值化`或`argmax`不会直接优化 Dice/IoU。RankSEG 使用指标感知的排序方法在推理阶段针对所选指标进行决策。实际增益取决于概率质量和部署数据分布，应在有代表性的数据上进行验证。
 
 了解 RankSEG 的更多信息，请查看[我们的文档](https://rankseg.readthedocs.io/en/latest/)。
 
@@ -37,7 +43,7 @@
 
 ## 🌟 为什么选择 RankSEG?
 
-传统分割通常使用 `argmax` 或固定阈值，但这些方法并没有直接针对 Dice / IoU 等非可分解指标进行优化。RankSEG 在推理阶段直接优化目标指标，因此在不重训模型的情况下，往往可以获得“免费”的性能提升。
+传统分割通常使用 `argmax` 或固定阈值，但这些方法并没有直接针对 Dice / IoU 等非可分解指标进行优化。RankSEG 在推理阶段使用指标感知的排序方法，能够在不重训模型的情况下改善部分任务的表现。
 
 ## ⚡ 快速开始
 
@@ -76,6 +82,13 @@ from rankseg.functional import rankseg
 preds = rankseg(probs, metric="dice", solver="RMA", output_mode="multiclass")
 ```
 
+RankSEG 会严格检查 metric、output mode 与 solver 的兼容性；不支持的组合会直接报错，
+而不会静默切换到其他算法。具体组合请参阅
+[solver 选择指南](https://rankseg.readthedocs.io/en/latest/getting_started.html#solver-selection)。
+多标签预测始终使用 `torch.bool`，形状为
+`(batch_size, num_classes, *image_shape)`；多类预测始终使用 `torch.int64`，
+形状为 `(batch_size, *image_shape)`。
+
 > 💡 **立即尝试:**
 > [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1c2znXP7_yt_9MrE75p-Ag82LHz-WfKq-?usp=sharing)
 >
@@ -87,16 +100,20 @@ preds = rankseg(probs, metric="dice", solver="RMA", output_mode="multiclass")
 >
 > SAM 系列集成路径：
 > [Notebook](./notebooks/rankseg_with_sam_family.ipynb) · [Colab](https://colab.research.google.com/github/rankseg/rankseg/blob/main/notebooks/rankseg_with_sam_family.ipynb)
+>
+> MONAI 官方教程：
+> [Notebook](https://github.com/Project-MONAI/tutorials/blob/main/modules/rankseg_integration.ipynb) · [Colab](https://colab.research.google.com/github/Project-MONAI/tutorials/blob/main/modules/rankseg_integration.ipynb)
 
 ## 🔌 官方集成路径
 
-这些是当前由本仓库维护的官方集成入口。
+以下包括本仓库维护的 RankSEG 集成入口和官方生态教程。
 
 | 路径 | 状态 | 入口 |
 | :--- | :---: | :--- |
 | **PyTorch Native** | **Ready** | [Docs](https://rankseg.readthedocs.io/en/latest/integrations_pytorch.html) · [Example](./examples/pytorch_native_rankseg.py) |
 | **Hugging Face 语义分割** | **Ready** | `from rankseg.integration import transformers` -> `transformers.postprocess` / `transformers.restore_semantic_probs` · [Docs](https://rankseg.readthedocs.io/en/latest/integrations_transformers.html) · [Example](./examples/transformers_rankseg.py) |
 | **SAM 系列** | **Ready** | `from rankseg.integration import sam` -> `sam.Sam1` / `sam.Sam2` / `sam.Sam3` · [Docs](https://rankseg.readthedocs.io/en/latest/integrations_sam.html) · [Notebook](./notebooks/rankseg_with_sam_family.ipynb) |
+| **MONAI** | **官方教程** | 可选的第三方 `RankSEG` / `RankSEGd` transform · [Docs](https://rankseg.readthedocs.io/en/latest/integrations_monai.html) · [MONAI Tutorial](https://github.com/Project-MONAI/tutorials/blob/main/modules/rankseg_integration.ipynb) · [Colab](https://colab.research.google.com/github/Project-MONAI/tutorials/blob/main/modules/rankseg_integration.ipynb) |
 
 ## 🌐 外部集成路径
 
@@ -108,29 +125,33 @@ preds = rankseg(probs, metric="dice", solver="RMA", output_mode="multiclass")
 
 ## ✨ 主要特性
 
-- **🚀 指标瞬间提升**：相比标准的 `argmax`，持续提升 mIoU 和 mDice 分数。
-- **🔌 即插即用**：兼容**任何** PyTorch 分割模型。无需重训。
+- **🚀 已验证的指标增益**：在论文报告的 benchmarks 中，相比标准 `argmax` 改善了 mIoU 和 mDice。
+- **🔌 即插即用**：兼容输出概率图的 PyTorch 分割模型。无需重训。
 - **🆓 无需训练**：纯后处理。无需梯度、无需反向传播、无需数据集。
 - **⚡ 高效默认路径**：推荐使用 `RMA` 作为默认推理求解器。
 - **🧩 灵活**：支持多类和多标签分割任务。
 
 ## 📊 Benchmarks
 
-RankSEG 在不改动模型权重的情况下，能在多个模型和数据集上持续带来稳定增益。
+以下精选结果在五个分割数据集上，使用相同的冻结概率或 checkpoint 比较
+`argmax` 与 RankSEG-RMA。柱高表示指标分数（%），柱顶标注具体数值，
+数据集下方标注提升的百分点。
 
-| 模型 | 数据集 | mIoU (Argmax) | mIoU (RankSEG) | mDice (Argmax) | mDice (RankSEG) |
-|-------|---------|---------------|----------------|----------------|-----------------|
-| DeepLabV3+ (ResNet101) | PASCAL VOC | 77.25% | **78.14%** ↑0.89% | 82.08% | **83.14%** ↑1.06% |
-| SegFormer (MiT-B4) | PASCAL VOC | 77.57% | **78.59%** ↑1.02% | 82.15% | **83.22%** ↑1.07% |
-| UPerNet (ConvNeXt) | PASCAL VOC | 79.52% | **80.31%** ↑0.79% | 84.11% | **84.98%** ↑0.87% |
-| PSPNet (ResNet101) | Cityscapes | 65.89% | **66.53%** ↑0.64% | 73.55% | **74.28%** ↑0.73% |
-| DeepLabV3+ (ResNet101) | Cityscapes | 66.17% | **66.68%** ↑0.51% | 73.71% | **74.33%** ↑0.62% |
-| UPerNet (ConvNeXt) | Cityscapes | 68.83% | **69.57%** ↑0.74% | 76.08% | **76.97%** ↑0.89% |
-| SegFormer (MiT-B4) | ADE20K | 40.00% | **40.82%** ↑0.82% | 46.50% | **47.57%** ↑1.07% |
-| UPerNet (ConvNeXt) | ADE20K | 42.86% | **43.84%** ↑0.98% | 49.61% | **50.85%** ↑1.24% |
-| CPT (Swin-Large) | ADE20K | 44.59% | **45.56%** ↑0.97% | 51.27% | **52.58%** ↑1.31% |
+<div align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./fig/benchmark_results_dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="./fig/benchmark_results.png">
+    <img src="./fig/benchmark_results.png" alt="RankSEG 在五个精选数据集上与 argmax 的 Dice 和 IoU 对比结果" width="100%">
+  </picture>
+</div>
 
-*结果来自我们的 [NeurIPS 2025 论文](https://openreview.net/forum?id=4tRMm1JJhw)。*
+医学结果使用冻结的 BTCV Swin UNETR checkpoint，在固定的 MSD Pancreas
+外部测试 cohort 上评估；根据公开的数据集 provenance，这些病例未参与
+训练、checkpoint 选择或后处理参数选择。包含独立 MSD Spleen 评测在内的
+完整结果、协议、decoder 延迟、manifest 和复现命令见
+[rankseg-benchmark](https://github.com/rankseg/rankseg-benchmark)。
+
+*算法细节及更多实验见我们的 [NeurIPS 2025 论文](https://openreview.net/forum?id=4tRMm1JJhw)。*
 
 ## 🧪 更多演示
 
@@ -138,6 +159,7 @@ RankSEG 在不改动模型权重的情况下，能在多个模型和数据集上
 
 | 框架 | 任务 | 快速入口 |
 | :--- | :--- | :--- |
+| **MONAI** | 3D 医学分割集成 | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Project-MONAI/tutorials/blob/main/modules/rankseg_integration.ipynb) |
 | **SAM 系列** | SAM1、SAM2、SAM3 分割 | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/rankseg/rankseg/blob/main/notebooks/rankseg_with_sam_family.ipynb) |
 | **Hugging Face** | 互动演示 | [![Spaces](https://img.shields.io/badge/%F0%9F%A4%97-Spaces-blue)](https://huggingface.co/spaces/statmlben/rankseg) |
 

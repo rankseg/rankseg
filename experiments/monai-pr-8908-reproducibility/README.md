@@ -1,5 +1,9 @@
 # MONAI PR #8908: fixed-model decoder experiment
 
+> Looking for the user-facing integration walkthrough? RankSEG is now included
+> in the official [MONAI RankSEG integration tutorial](https://github.com/Project-MONAI/tutorials/blob/main/modules/rankseg_integration.ipynb),
+> also available in [Google Colab](https://colab.research.google.com/github/Project-MONAI/tutorials/blob/main/modules/rankseg_integration.ipynb).
+
 This experiment asks one question: with a frozen public MONAI Bundle, does
 replacing `AsDiscrete(argmax=True)` with RankSEG improve samplewise Dice/IoU,
 and what is the post-processing cost?
@@ -59,10 +63,10 @@ export MPLCONFIGDIR=/tmp/matplotlib-monai-pr8908
 ## Smoke test (first 3 cases)
 
 ```bash
-env/bin/python experiments/monai_pr8908/cache_probabilities.py --case-limit 3
-env/bin/python experiments/monai_pr8908/evaluate_decoders.py --case-limit 3
-env/bin/python experiments/monai_pr8908/summarize_results.py --allow-partial
-env/bin/python experiments/monai_pr8908/visualize_cases.py
+env/bin/python experiments/monai-pr-8908-reproducibility/cache_probabilities.py --case-limit 3
+env/bin/python experiments/monai-pr-8908-reproducibility/evaluate_decoders.py --case-limit 3
+env/bin/python experiments/monai-pr-8908-reproducibility/summarize_results.py --allow-partial
+env/bin/python experiments/monai-pr-8908-reproducibility/visualize_cases.py
 ```
 
 For a CPU-only smoke test, append `--device cpu`; final timing must use the GPU
@@ -71,10 +75,10 @@ configuration.
 ## Full fixed experiment
 
 ```bash
-env/bin/python experiments/monai_pr8908/cache_probabilities.py
-env/bin/python experiments/monai_pr8908/evaluate_decoders.py
-env/bin/python experiments/monai_pr8908/summarize_results.py
-env/bin/python experiments/monai_pr8908/visualize_cases.py
+env/bin/python experiments/monai-pr-8908-reproducibility/cache_probabilities.py
+env/bin/python experiments/monai-pr-8908-reproducibility/evaluate_decoders.py
+env/bin/python experiments/monai-pr-8908-reproducibility/summarize_results.py
+env/bin/python experiments/monai-pr-8908-reproducibility/visualize_cases.py
 ```
 
 Outputs are written under `outputs/`:
