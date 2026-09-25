@@ -33,7 +33,7 @@ jobs:
           python-version: '3.10'
 
       - name: Install build dependencies
-        run: python -m pip install --upgrade build twine "readme_renderer[md]"
+        run: python -m pip install --upgrade pip build twine "readme_renderer[md]"
 
       - name: Build wheel and sdist
         run: python -m build
@@ -51,6 +51,9 @@ jobs:
 
           python -m venv "$RUNNER_TEMP/rankseg-cpu-smoke"
           cpu_python="$RUNNER_TEMP/rankseg-cpu-smoke/bin/python"
+          # A new venv uses ensurepip's bundled pip, not the upgraded outer pip.
+          # Upgrade before resolving PyTorch-index wheel metadata/name aliases.
+          "$cpu_python" -m pip install --upgrade pip
           "$cpu_python" -m pip install torch --index-url https://download.pytorch.org/whl/cpu
 
           wheels=("$GITHUB_WORKSPACE"/dist/*.whl)
