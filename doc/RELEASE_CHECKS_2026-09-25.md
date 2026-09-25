@@ -2,8 +2,8 @@
 
 Local acceptance completed on 2026-09-25. **`safe_screening=False` is the
 default**. Explicit `True` and `"auto"` remain available; auto's decimal
-1,280,000-entry CUDA threshold is unchanged. There is no release, commit or
-push associated with this check.
+1,280,000-entry CUDA threshold is unchanged. The initial local check did not
+perform a release, commit or push; post-push CI follow-up is recorded below.
 
 ## Changes and compatibility
 
@@ -47,9 +47,9 @@ optional `torchmetrics` test dependency. CPU skips include CUDA-only tests.
 Both installed CUDA artifacts executed actual Triton statistics, packing,
 gather, scoring, scatter and multiclass-assignment kernels via explicit opt-in
 modes, including an input exactly at the auto threshold. CPU execution does
-not require activation of those kernels. A genuinely Triton-free installation
-was not created locally; missing-backend behavior is covered by regression
-tests, and the distribution CI has a separate Triton-free CPU environment.
+not require activation of those kernels. The initial check did not create a
+genuinely Triton-free installation. The CI bootstrap follow-up below now
+verifies both distributions in a fresh, Triton-free CPU environment.
 
 ## Real-input frozen-reference audit
 
@@ -104,8 +104,9 @@ also do not provide a bound on final multiclass ground-truth metrics.
 - Main environment `pip check`: no broken requirements.
 - Focused lint and changed-tree whitespace checks: passed.
 - CI configuration retains Python 3.10–3.14, CPU coverage, documentation,
-  distribution smoke and extracted-sdist tests. **Remote CI was not triggered
-  or verified in this revision.** Only Python 3.10 was executed locally.
+  distribution smoke and extracted-sdist tests. Remote CI was not triggered
+  or verified during the initial check; see the post-push follow-up below.
+  Only Python 3.10 was executed locally.
 
 **Version confirmed: 0.0.7.** `setup.py` has been updated and fresh release
 artifacts built. The algorithm/package Python sources still match the full
@@ -136,3 +137,28 @@ records are preserved locally in the Git-ignored directory
 also retains isolated installs, coverage XML and extracted-sdist tests.
 Post-version-bump logs are in `.cache/release-0.0.7-2026-09-25/`, with isolated
 installs and extracted source under `/tmp/rankseg-007-release.Dd8H5g/`.
+
+## CI bootstrap follow-up
+
+After the user pushed `02476cccbaabffd2b98b94e62f485904ef8d0e73`,
+[Python 3.10–3.14 and documentation CI](https://github.com/rankseg/rankseg/actions/runs/36108032990)
+passed. [Build distributions](https://github.com/rankseg/rankseg/actions/runs/36108032956)
+failed while installing Torch into its new CPU venv, before RankSEG testing.
+
+Reproduced the `typing-extensions` / `typing_extensions` metadata-name rejection
+with pip 23.0.1. Upgrading only pip to 26.2.1 allowed the same wheel to download.
+The workflow now upgrades pip in both the build environment and the CPU venv;
+upgrading the outer environment alone does not upgrade a new venv's pip.
+No algorithm, runtime dependency or dependency index was changed.
+
+Executed the patched workflow's two CPU installation/testing shell blocks in
+a fresh isolated environment with **Torch 2.14.0+cpu and no Triton**:
+
+- Wheel and sdist: **33 prediction checks each**, with Triton absence verified.
+- Both installed artifacts: `pip check` passed.
+- Full extracted-sdist suite: **1,192 passed, 1,639 skipped**; **92.65%** coverage.
+- Workflow YAML parsing, shell syntax and `git diff --check`: passed.
+
+Evidence is in `.cache/release-0.0.7-ci-bootstrap-2026-09-25/`. This workflow
+fix is local and has not been committed or pushed by the assistant. Its new
+commit still needs a successful remote Build distributions run before release.
