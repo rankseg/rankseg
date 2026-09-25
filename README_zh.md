@@ -50,6 +50,9 @@
 pip install -U rankseg
 ```
 
+Linux x86-64 可选 GPU 加速：`pip install "rankseg[cuda]"`
+（[安装与启用说明](https://rankseg.readthedocs.io/en/latest/getting_started.html#optional-cuda-acceleration)）。
+
 对于形状为 `(batch, classes, *spatial)`、至少包含两个类别的多类模型 logits：
 
 ```python
@@ -61,6 +64,10 @@ preds = RankSEG(metric="dice")(probs)  # 替代 argmax；输出形状为 (batch,
 
 二分类／多标签示例、函数式 API 及求解器选项，请参阅
 [入门指南](https://rankseg.readthedocs.io/en/latest/getting_started.html)。
+
+RMA Dice 可通过 `safe_screening="auto"` 显式启用节省显存的自动 screening。
+默认仍为 `False`，保留原计算路径；启用后数值近似并列时 mask 可能发生变化。
+[详细说明](https://rankseg.readthedocs.io/en/latest/API.html#experimental-rma-safe-screening)。
 
 **在线体验：** [Colab](https://colab.research.google.com/drive/1c2znXP7_yt_9MrE75p-Ag82LHz-WfKq-?usp=sharing) · [交互演示](https://huggingface.co/spaces/statmlben/rankseg)
 

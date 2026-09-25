@@ -1,0 +1,16 @@
+# CPU-only CI: python -m pytest --cov-config=.coveragerc.cpu
+# Keep the portable implementation under the same 85% gate. The default
+# pyproject.toml configuration still includes the CUDA backend for GPU runs.
+[run]
+source = rankseg
+omit =
+    tests/*
+    rankseg/_screening_cuda.py
+
+[report]
+show_missing = true
+precision = 2
+fail_under = 85
+
+[xml]
+output = coverage.xml

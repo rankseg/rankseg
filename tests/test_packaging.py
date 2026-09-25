@@ -5,6 +5,7 @@ import types
 from pathlib import Path
 
 import pytest
+from packaging.requirements import Requirement
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -22,7 +23,7 @@ def setup_metadata(monkeypatch):
     return namespace, captured
 
 
-@pytest.mark.parametrize("version", ["0.0.6", "0.1.0"])
+@pytest.mark.parametrize("version", ["0.0.6", "0.0.7", "0.1.0"])
 @pytest.mark.parametrize("quote", ['"', "'"])
 def test_pypi_description_uses_release_pinned_light_fallback(setup_metadata, version, quote):
     namespace, _ = setup_metadata
@@ -91,3 +92,32 @@ def test_setup_description_preserves_readme_and_code_examples(setup_metadata):
     assert f"https://github.com/rankseg/rankseg/blob/v{version}/examples/pytorch_native_rankseg.py" in description
     assert re.findall(r"```.*?```", description, re.DOTALL) == re.findall(r"```.*?```", readme, re.DOTALL)
     assert (ROOT / "README.md").read_text(encoding="utf-8") == readme
+
+
+def test_cuda_extra_does_not_change_base_dependencies(setup_metadata):
+    _, metadata = setup_metadata
+    assert metadata["install_requires"] == ["torch>=2.0.0", "scipy", "numpy"]
+    assert "cuda" in metadata["extras_require"]
+    assert len(metadata["extras_require"]["cuda"]) == 1
+
+
+@pytest.mark.parametrize(
+    "system,machine,enabled",
+    [("Linux", "x86_64", True), ("Linux", "aarch64", False),
+     ("Linux", "ppc64le", False), ("Windows", "AMD64", False),
+     ("Darwin", "arm64", False), ("Darwin", "x86_64", False)],
+)
+def test_cuda_extra_is_limited_to_validated_platform(setup_metadata, system, machine, enabled):
+    _, metadata = setup_metadata
+    requirement = Requirement(metadata["extras_require"]["cuda"][0])
+    assert requirement.name == "triton"
+    assert requirement.marker.evaluate({"platform_system": system, "platform_machine": machine}) == enabled
+
+
+def test_cuda_extra_allows_both_validated_torch_triton_pairs(setup_metadata):
+    _, metadata = setup_metadata
+    requirement = Requirement(metadata["extras_require"]["cuda"][0])
+    for version in ("3.4.0", "3.6.0"):
+        assert version in requirement.specifier
+    for version in ("2.0.0", "3.3.0", "4.0.0"):
+        assert version not in requirement.specifier

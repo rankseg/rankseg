@@ -1,1 +1,5 @@
 include tests/conftest.py
+include .coveragerc.cpu
+include scripts/benchmark_rma_screening.py
+include scripts/check_distributions.py
+include scripts/smoke_test_distribution.py

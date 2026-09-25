@@ -49,7 +49,9 @@ def _validate_solver_compatibility(metric, output_mode, solver, num_class):
 
 def _validate_solver_params(solver, output_mode, solver_params):
     if solver == "rma":
-        allowed = {"unassigned_policy", "void_index"} if output_mode == "multiclass" else set()
+        allowed = {"safe_screening"}
+        if output_mode == "multiclass":
+            allowed |= {"unassigned_policy", "void_index"}
     elif solver in {"ba", "trna", "ba+trna"}:
         allowed = {"eps"}
     else:
@@ -139,6 +141,16 @@ def rankseg(
         `unassigned_policy='void'` and `void_index` to preserve abstentions.
         A void index must fit in ``torch.int64`` and lie outside the valid
         class index range so it cannot be confused with a class prediction.
+        ``safe_screening=True`` forces experimental screened sorting for
+        RMA Dice with ``smooth=0``. ``'auto'`` screens CPU inputs and CUDA
+        inputs with Triton and at least 1,280,000 probability values (B*C*D);
+        smaller/no-Triton CUDA inputs use optimized full sort.
+        All other metric/smooth combinations retain
+        full sort. It defaults to False, retaining the original path.
+        This option does not change class pruning or
+        multiclass eligibility. Direct argmax breaks exactly equal computed
+        maxima by the smallest searched volume; near ties do not trigger a
+        retry. Bitwise mask equivalence is not promised.
         For BA, TRNA, and BA+TRNA, `eps` is the tail probability used to retain
         the central `1 - eps` refined-normal interval; it must be finite and
         lie strictly between 0 and 1.

@@ -6,7 +6,8 @@ import torch
 SUPPORTED_PROB_DTYPES = (torch.float16, torch.bfloat16, torch.float32, torch.float64)
 
 
-def validate_probability_tensor(probs, *, check_values=True):
+def validate_probability_tensor(probs, *, check_values=True, return_bounds=False):
+    """Validate probabilities, optionally reusing the already-read value range."""
     if not isinstance(probs, torch.Tensor):
         raise TypeError("probs must be a torch.Tensor")
     if probs.dtype not in SUPPORTED_PROB_DTYPES:
@@ -17,13 +18,22 @@ def validate_probability_tensor(probs, *, check_values=True):
         raise ValueError("probs must contain at least one class")
     if any(size == 0 for size in probs.shape[2:]):
         raise ValueError("probs spatial dimensions must be non-empty")
-    if check_values and probs.numel() > 0:
+    if check_values:
+        bounds = _validate_probability_values(probs)
+        if return_bounds:
+            return bounds
+
+
+def _validate_probability_values(probs):
+    """Validate values after structure/dtype checks; return the observed range."""
+    if probs.numel() > 0:
         minimum, maximum = torch.aminmax(probs)
         minimum, maximum = torch.stack((minimum, maximum)).detach().cpu().tolist()
         if not math.isfinite(minimum) or not math.isfinite(maximum):
             raise ValueError("probs must contain only finite values")
         if minimum < 0 or maximum > 1:
             raise ValueError("probs must be in the range [0, 1]")
+        return minimum, maximum
 
 
 def validate_finite_real(name, value):

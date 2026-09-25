@@ -1,15 +1,47 @@
 # Author: Ben Dai <bendai@cuhk.edu.hk>, Zixun Wang <zixunwang@link.cuhk.edu.hk>
 # License: BSD 3 clause
 
+from numbers import Real
+from typing import Literal, Union
+
 import torch
 import torch.nn.functional as F
 
-from rankseg._validation import validate_finite_real, validate_integral, validate_probability_tensor
+from rankseg._screening import (
+    _rma_dice_nonoverlap, _rma_dice_screened_masks, _rma_dice_screening_statistics,
+    _rma_dice_validated_statistics,
+)
+from rankseg._validation import (
+    _validate_probability_values, validate_finite_real, validate_integral, validate_probability_tensor,
+)
 from rankseg.distribution import RefinedNormalPB
 
 _TRNA_ACCELERATOR_PMF_CHUNK_SIZE = 128
 _SCALED_SCORE_SMOOTH_THRESHOLD = 1e6
 _RMA_CUDA_VECTORIZED_MASK_MAX_DIM = 524_288
+# Decimal probability count B*C*D, not spatial size or bytes. This empirical
+# auto policy trades modest latency increases for lower sorting memory.
+_RMA_CUDA_SCREENING_AUTO_MIN_ELEMENTS = 1_280_000
+
+
+def _rma_dice_use_screening(probs: torch.Tensor, mode: Union[bool, Literal["auto"]]) -> bool:
+    """Metadata-only dispatch for eligible, nonempty Dice inputs.
+
+    True forces the portable or fused implementation. Auto uses screening on
+    CPU, and on sufficiently large CUDA inputs with the optional backend.
+    No probability scan, device synchronization or online timing is added.
+    """
+    if mode is True:
+        return True
+    if mode != "auto":
+        return False
+    if probs.device.type == "cpu":
+        return True
+    if probs.device.type == "cuda" and probs.numel() >= _RMA_CUDA_SCREENING_AUTO_MIN_ELEMENTS:
+        from rankseg._screening import _cuda_backend
+
+        return _cuda_backend() is not None
+    return False
 
 
 def _uses_host_refined_normal(device: torch.device) -> bool:
@@ -337,6 +369,7 @@ def rankseg_rma(
     pruning_prob: float = 0.5,
     unassigned_policy: str = "max_score",
     void_index: int = 255,
+    safe_screening: Union[bool, Literal["auto"]] = False,
 ) -> torch.Tensor:
     r"""
     Produce the predicted segmentation by `rankdice` based on the estimated output probability.
@@ -400,6 +433,24 @@ def rankseg_rma(
         from class predictions. The default value, 255, is therefore suitable
         only when there are fewer than 256 classes.
 
+    safe_screening : bool or {'auto'}, default=False
+        Control experimental two-sided screening for Dice with ``smooth=0``.
+        False (the default) retains the original path; True forces screening regardless of
+        input size. 'auto' screens CPU inputs, and CUDA inputs with Triton and
+        at least 1,280,000 probability values (batch * classes * spatial size).
+        Other CUDA inputs use optimized full sort; other devices retain the
+        original path in auto mode. The threshold is empirical, not a speed
+        guarantee. No probability scan or timing is added for dispatch.
+        Sort only unresolved pixels, using bounded padded groups for different
+        per-class lengths. Direct argmax prefers the smallest searched volume
+        only on exactly equal computed maxima, without close-score retries.
+        Optional Triton kernels fuse CUDA screening statistics and scoring;
+        otherwise True uses pure PyTorch. Candidate size never triggers a
+        full-sort retry. Other metric/smooth combinations
+        retain the original full sort. Class pruning and multiclass assignment
+        rules are unchanged, but binary and multiclass masks can differ.
+        This can reduce sorting memory, but is not faster for every input.
+
     Returns
     -------
     preds : Tensor
@@ -419,13 +470,35 @@ def rankseg_rma(
     :cite:p:`wang2025rankseg` Wang, Z., & Dai, B. (2025). RankSEG-RMA: An Efficient Segmentation Algorithm via Reciprocal Moment Approximation. Advances in Neural Information Processing Systems (NeurIPS 2025).
     """
 
-    validate_probability_tensor(probs)
+    validate_probability_tensor(probs, check_values=False)
+    batch_size, num_classes, *image_shape = probs.shape
+    auto_screening = isinstance(safe_screening, str) and safe_screening == "auto"
+    screened_dice = (
+        (safe_screening is True or (auto_screening and probs.device.type in ("cpu", "cuda")))
+        and isinstance(metric, str) and metric.strip().lower() == "dice"
+        and isinstance(smooth, Real) and not isinstance(smooth, bool) and smooth == 0
+    )
+    use_screening = screened_dice and batch_size > 0 and _rma_dice_use_screening(probs, safe_screening)
+    prepared = None
+    maximum = None
+    # Preserve value-error precedence and the ordinary validation path for
+    # unsupported modes/dtypes. Metadata-only gating never inspects GPU values.
+    if use_screening and probs.is_cuda and probs.dtype in (torch.float32, torch.float64):
+        validated = _rma_dice_validated_statistics(probs)
+        if validated is not None:
+            maximum, prepared = validated
+        del validated
+    if maximum is None:
+        bounds = _validate_probability_values(probs)
+        maximum = bounds[1] if bounds is not None else None
     if not isinstance(metric, str):
         raise TypeError("metric must be a string")
     if not isinstance(output_mode, str):
         raise TypeError("output_mode must be a string")
     if not isinstance(unassigned_policy, str):
         raise TypeError("unassigned_policy must be a string")
+    if not isinstance(safe_screening, bool) and not auto_screening:
+        raise TypeError("safe_screening must be a bool or 'auto'")
     smooth = validate_finite_real("smooth", smooth)
     if smooth < 0:
         raise ValueError("smooth must be greater than or equal to 0")
@@ -470,6 +543,14 @@ def rankseg_rma(
     ):
         """Compute optimal tau and cutpoint based on the selected metric."""
         device = pb_mean.device
+        if screened_dice:
+            # This opt-in path has no smoothing terms. Reuse the prefix
+            # workspace and account for the empty candidate without padding
+            # another full-sized score tensor.
+            offsets = torch.arange(2, dim + 2, device=device)
+            scores = cumsum_prob.mul_(2).div_(pb_mean.unsqueeze(-1) + offsets)
+            best, index = scores.max(dim=-1)
+            return (index + 1).masked_fill_(best == 0, 0)
         taus = torch.arange(1, dim + 1, device=device).view(1, 1, -1)
         use_scaled_scores = smooth > _SCALED_SCORE_SMOOTH_THRESHOLD
         if metric == "dice":
@@ -511,7 +592,7 @@ def rankseg_rma(
         overlap_preds: torch.Tensor,
         probs: torch.Tensor,
         metric: str,
-        sorted_prob: torch.Tensor,
+        active_mask: torch.Tensor,
         pb_mean: torch.Tensor,
         smooth: float,
         pruning_prob: float,
@@ -519,6 +600,14 @@ def rankseg_rma(
         void_index: int,
     ) -> torch.Tensor:
         batch_size, _, dim = probs.size()
+
+        if screened_dice:
+            # Dispatch before materializing dense count/unique/score tensors.
+            fused = _rma_dice_nonoverlap(
+                overlap_preds, probs, pb_mean, active_mask, unassigned_policy, void_index,
+            )
+            if fused is not None:
+                return fused
 
         class_counts = overlap_preds.sum(dim=1)
         unassigned_mask = class_counts == 0
@@ -529,7 +618,6 @@ def rankseg_rma(
         mu = (probs * safe_to_predict).sum(dim=2, keepdim=True)
         opt_tau = _count_selected_pixels(safe_to_predict, probs.dtype)
 
-        active_mask = sorted_prob[:, :, 0] > pruning_prob
         use_scaled_scores = smooth > _SCALED_SCORE_SMOOTH_THRESHOLD
 
         if metric == "dice":
@@ -617,32 +705,64 @@ def rankseg_rma(
 
         return nonoverlap_predicts
 
-    device = probs.device
-    batch_size, num_classes, *image_shape = probs.shape
+    def full_sort_masks(probs: torch.Tensor, pb_mean: torch.Tensor):
+        """Keep the original full-sort search and mask reconstruction together."""
+        batch_size, num_classes, dim = probs.shape
+        device = probs.device
+        sorted_prob, top_index = torch.sort(probs, dim=-1, descending=True)
+        active_mask = sorted_prob[:, :, 0] > pruning_prob
+        cumsum_prob = torch.cumsum(sorted_prob, dim=-1)
+        opt_tau = compute_opt_tau(metric, pb_mean, cumsum_prob, dim, smooth)
+        use_vectorized_mask = (
+            device.type == "cuda" and (num_classes > 1 or screened_dice)
+            and dim <= _RMA_CUDA_VECTORIZED_MASK_MAX_DIM
+        )
+        if use_vectorized_mask:
+            rank_positions = torch.arange(dim, device=device).view(1, 1, -1)
+            selected_by_rank = rank_positions < opt_tau.unsqueeze(-1)
+            selected_by_rank &= active_mask.unsqueeze(-1)
+            # Each top_index row is a full permutation, so scatter writes every
+            # output position exactly once and an uninitialized destination is safe.
+            overlap_preds = torch.empty_like(selected_by_rank).scatter_(2, top_index, selected_by_rank)
+        else:
+            overlap_preds = torch.zeros(batch_size, num_classes, dim, dtype=torch.bool, device=device)
+            for b in range(batch_size):
+                for c in range(num_classes):
+                    if not active_mask[b, c]:
+                        continue
+                    overlap_preds[b, c, top_index[b, c, : opt_tau[b, c]]] = True
+        return overlap_preds, active_mask
 
     probs = torch.flatten(probs, start_dim=2, end_dim=-1)
-    dim = probs.shape[-1]
-
-    sorted_prob, top_index = torch.sort(probs, dim=-1, descending=True)
-    pb_mean = probs.sum(dim=-1)
-    cumsum_prob = torch.cumsum(sorted_prob, dim=-1)
-
-    opt_tau = compute_opt_tau(metric, pb_mean, cumsum_prob, dim, smooth)
-    use_vectorized_mask = device.type == "cuda" and num_classes > 1 and dim <= _RMA_CUDA_VECTORIZED_MASK_MAX_DIM
-    if use_vectorized_mask:
-        rank_positions = torch.arange(dim, device=device).view(1, 1, -1)
-        selected_by_rank = rank_positions < opt_tau.unsqueeze(-1)
-        selected_by_rank &= (sorted_prob[:, :, 0] > pruning_prob).unsqueeze(-1)
-        # Each top_index row is a full permutation, so scatter writes every
-        # output position exactly once and an uninitialized destination is safe.
-        overlap_preds = torch.empty_like(selected_by_rank).scatter_(2, top_index, selected_by_rank)
+    all_pruned = screened_dice and maximum is not None and maximum <= pruning_prob
+    if all_pruned and output_mode == "multilabel":
+        # Value validation already copied the global maximum to the host.
+        # Reuse it: no extra reduction/synchronization or candidate pipeline.
+        return torch.zeros((batch_size, num_classes, *image_shape), device=probs.device, dtype=torch.bool)
+    if all_pruned:
+        # Retain the original torch.sum reduction for all-pruned max_score.
+        # Reusing the fused sum here could change near-tied fallback labels.
+        del prepared
+        pb_mean = probs.sum(dim=-1)
+        overlap_preds = torch.zeros_like(probs, dtype=torch.bool)
+        active_mask = torch.zeros_like(pb_mean, dtype=torch.bool)
+    elif use_screening:
+        if prepared is None:
+            prepared = _rma_dice_screening_statistics(probs)
+        if prepared is None:
+            pb_mean, maxima = probs.sum(dim=-1), probs.amax(dim=-1)
+            statistics = None
+        else:
+            pb_mean, maxima, statistics = prepared
+        active_mask = maxima > pruning_prob
+        overlap_preds = _rma_dice_screened_masks(
+            probs, pb_mean, active_mask, maxima=maxima,
+            statistics=statistics,
+        )
+        del prepared, statistics
     else:
-        overlap_preds = torch.zeros(batch_size, num_classes, dim, dtype=torch.bool, device=device)
-        for b in range(batch_size):
-            for c in range(num_classes):
-                if sorted_prob[b, c, 0] <= pruning_prob:
-                    continue
-                overlap_preds[b, c, top_index[b, c, : opt_tau[b, c]]] = True
+        pb_mean = probs.sum(dim=-1)
+        overlap_preds, active_mask = full_sort_masks(probs, pb_mean)
 
     if output_mode == "multilabel":
         preds = overlap_preds.reshape(batch_size, num_classes, *image_shape)
@@ -651,7 +771,7 @@ def rankseg_rma(
             overlap_preds,
             probs,
             metric,
-            sorted_prob,
+            active_mask,
             pb_mean,
             smooth,
             pruning_prob,

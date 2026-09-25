@@ -51,6 +51,9 @@ multilabel tasks, from natural images to 3D medical scans.
 pip install -U rankseg
 ```
 
+Optional Linux x86-64 GPU acceleration: `pip install "rankseg[cuda]"`
+([setup and activation](https://rankseg.readthedocs.io/en/latest/getting_started.html#optional-cuda-acceleration)).
+
 For multiclass model logits shaped `(batch, classes, *spatial)`, with at least two classes:
 
 ```python
@@ -62,6 +65,10 @@ preds = RankSEG(metric="dice")(probs)  # replaces argmax; shape: (batch, *spatia
 
 For binary/multilabel examples, the functional API, and solver options, see the
 [Getting Started guide](https://rankseg.readthedocs.io/en/latest/getting_started.html).
+
+RMA Dice offers optional memory-saving screening with `safe_screening="auto"`.
+The default remains `False`, preserving the original computation path. Opting in
+may change masks near numerical ties. [Details](https://rankseg.readthedocs.io/en/latest/API.html#experimental-rma-safe-screening).
 
 **Try it online:** [Colab](https://colab.research.google.com/drive/1c2znXP7_yt_9MrE75p-Ag82LHz-WfKq-?usp=sharing) · [Interactive demo](https://huggingface.co/spaces/statmlben/rankseg)
 

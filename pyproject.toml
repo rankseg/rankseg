@@ -8,6 +8,8 @@ python_files = ["test_*.py"]
 python_functions = ["test_*"]
 addopts = "--cov=rankseg --cov-report=term-missing --cov-report=xml"
 
+# Full coverage, including the CUDA backend. CPU-only CI explicitly selects
+# .coveragerc.cpu; keep its portable-code gate in sync with these settings.
 [tool.coverage.run]
 source = ["rankseg"]
 omit = ["tests/*"]

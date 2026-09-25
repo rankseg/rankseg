@@ -33,6 +33,53 @@ Install RankSEG using pip:
 
    pip install rankseg
 
+.. _cuda-installation:
+
+Optional CUDA acceleration
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For fused screening kernels on Linux x86-64, first install the CUDA-enabled
+PyTorch build appropriate for your system, then install the optional extra:
+
+.. code-block:: bash
+
+   pip install "rankseg[cuda]"
+
+This adds ``triton>=3.4,<4`` only on Linux x86-64. Other platforms keep the base
+dependencies; the extra does not install a GPU driver, select a CUDA-enabled
+PyTorch build, or detect whether a GPU is present. The validated CUDA combinations
+are PyTorch 2.8 / Triton 3.4 and PyTorch 2.11 / Triton 3.6 on an RTX 3090;
+these are tested combinations, not validation of every version in the allowed
+range. PyTorch's own Triton requirement must also be satisfied. An older
+PyTorch installation with a conflicting Triton pin may be upgraded by pip, or
+resolution may fail if that PyTorch version is explicitly pinned. Pin your
+chosen compatible PyTorch version when preserving an existing environment.
+
+The base RankSEG installation does not directly require Triton; the selected
+PyTorch distribution may have its own Triton dependency. CPU execution does not
+load RankSEG's CUDA backend. CUDA screening lazily loads Triton when available
+and, with ``safe_screening=True``, uses the portable PyTorch implementation if
+Triton is absent. Auto mode uses optimized full sort on CUDA without Triton.
+
+RMA Dice with ``smooth=0`` defaults to ``safe_screening=False``.
+To opt into automatic screening, explicitly select ``"auto"``. The extra
+supplies the optional backend that auto mode checks on CUDA:
+
+.. code-block:: python
+
+   from rankseg import RankSEG
+
+   decoder = RankSEG(metric="dice", solver="RMA", smooth=0, safe_screening="auto")
+   preds = decoder(probs)  # CUDA probabilities for GPU execution
+
+Auto mode screens CPU inputs, and CUDA inputs with Triton when the total
+probability count B*C*D is at least 1,280,000. Smaller CUDA inputs use optimized
+full sort. Set ``True`` to force screening regardless of size, or leave the
+option at its default ``False`` to retain the original computation path.
+
+Screening remains optional and does not promise bitwise equality with the
+full-sort masks. See :doc:`API` for numerical and performance details.
+
 Why RankSEG?
 ------------
 

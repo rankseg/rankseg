@@ -3,7 +3,7 @@ import re
 
 from setuptools import find_packages, setup
 
-__version__ = "0.0.6"
+__version__ = "0.0.7"
 
 
 def _pypi_description(readme, version):
@@ -61,6 +61,9 @@ setup(
     packages=find_packages(include=["rankseg", "rankseg.*"]),
     install_requires=["torch>=2.0.0", "scipy", "numpy"],
     extras_require={
+        # Optional fused screening kernels on the platform validated for this
+        # release. Let PyTorch's own Triton pin participate in resolution.
+        "cuda": ['triton>=3.4,<4; platform_system == "Linux" and platform_machine == "x86_64"'],
         "dev": ["pytest", "pytest-cov", "pre-commit", "commitizen", "torchmetrics"],
         "test": ["pytest", "pytest-cov", "torchmetrics"],
     },

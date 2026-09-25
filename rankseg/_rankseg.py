@@ -84,6 +84,14 @@ class RankSEG(object):
         With 'max_score', all classes are reconsidered if pruning removes every
         class in a sample. A void index must fit in ``torch.int64`` and lie
         outside the valid class index range.
+        ``safe_screening=True`` forces experimental screened sorting for
+        RMA Dice with ``smooth=0``. ``'auto'`` screens CPU inputs and CUDA
+        inputs with Triton and at least 1,280,000 probability values (B*C*D);
+        smaller/no-Triton CUDA inputs use optimized full sort.
+        The default is False, retaining the original path. Other metric/smooth
+        combinations keep full sort. Direct argmax breaks exactly equal
+        computed maxima by the smallest searched volume; masks need
+        not match the default full-sort path bit for bit.
         Unsupported parameters raise an error rather than being ignored.
 
     References

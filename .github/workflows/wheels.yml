@@ -43,63 +43,38 @@ jobs:
           python -m twine check --strict dist/*
           python scripts/check_distributions.py dist
 
-      - name: Install and smoke-test distributions
+      - name: Install and smoke-test distributions without Triton
         working-directory: ${{ runner.temp }}
         shell: bash
         run: |
           set -euo pipefail
 
-          smoke_test() {
-            RANKSEG_ARTIFACT="$1" python - <<'PY'
-          import os
-          from importlib.metadata import version
-          from pathlib import Path
-
-          import torch
-          import rankseg
-
-          package_path = Path(rankseg.__file__).resolve()
-          workspace = Path(os.environ["GITHUB_WORKSPACE"]).resolve()
-          assert workspace not in package_path.parents, (
-              f"imported rankseg from the source checkout: {package_path}"
-          )
-          assert rankseg.__version__ == version("rankseg")
-
-          probs = torch.tensor([[[0.8, 0.1], [0.2, 0.9]]])
-          preds = rankseg.RankSEG(
-              metric="accuracy",
-              output_mode="multiclass",
-              solver="argmax",
-          ).predict(probs)
-          assert preds.tolist() == [[0, 1]]
-
-          print(
-              f"smoke-tested {os.environ['RANKSEG_ARTIFACT']}: "
-              f"rankseg {rankseg.__version__} from {package_path}"
-          )
-          PY
-          }
+          python -m venv "$RUNNER_TEMP/rankseg-cpu-smoke"
+          cpu_python="$RUNNER_TEMP/rankseg-cpu-smoke/bin/python"
+          "$cpu_python" -m pip install torch --index-url https://download.pytorch.org/whl/cpu
 
           wheels=("$GITHUB_WORKSPACE"/dist/*.whl)
           sdists=("$GITHUB_WORKSPACE"/dist/*.tar.gz)
           test "${#wheels[@]}" -eq 1
           test "${#sdists[@]}" -eq 1
 
-          python -m pip install "${wheels[0]}"
-          python -m pip check
-          smoke_test "${wheels[0]}"
-
-          python -m pip uninstall --yes rankseg
-          python -m pip install --no-deps "${sdists[0]}"
-          python -m pip check
-          smoke_test "${sdists[0]}"
+          for artifact in "${wheels[0]}" "${sdists[0]}"; do
+            # Do not reuse a cached wheel when checking the sdist of the same version.
+            "$cpu_python" -m pip install --no-cache-dir "$artifact"
+            "$cpu_python" -m pip check
+            "$cpu_python" -I "$GITHUB_WORKSPACE/scripts/smoke_test_distribution.py" \
+              --artifact "$artifact" --source-root "$GITHUB_WORKSPACE" \
+              --device cpu --require-no-triton
+            "$cpu_python" -m pip uninstall --yes rankseg
+          done
 
       - name: Run tests from the packaged source
         working-directory: ${{ runner.temp }}
         shell: bash
         run: |
           set -euo pipefail
-          python -m pip install pytest pytest-cov torchmetrics
+          cpu_python="$RUNNER_TEMP/rankseg-cpu-smoke/bin/python"
+          "$cpu_python" -m pip install pytest pytest-cov torchmetrics
           sdists=("$GITHUB_WORKSPACE"/dist/*.tar.gz)
           test "${#sdists[@]}" -eq 1
           rankseg_sdist_dir="$(mktemp -d)"
@@ -107,7 +82,7 @@ jobs:
           sources=("$rankseg_sdist_dir"/rankseg-*)
           test "${#sources[@]}" -eq 1
           cd "${sources[0]}"
-          python -m pytest
+          "$cpu_python" -m pytest --cov-config=.coveragerc.cpu
 
       - uses: actions/upload-artifact@v4
         with:
