@@ -37,6 +37,43 @@ Algorithms
    rankseg.rankseg_rma
 
 
+Stable multiclass increments
+----------------------------
+
+RMA assigns overlapping pixels by the largest incremental objective score
+among the classes whose binary masks selected them. Unassigned pixels retain
+the existing ``max_score`` or ``void`` policy. Exactly equal computed scores
+prefer the lowest eligible class index; there is no absolute-epsilon tie band
+or raw-probability argmax fallback.
+
+Let :math:`t` be the uniquely selected pixel count, :math:`S` their probability
+sum, :math:`M` the full-image probability sum, and :math:`p` the candidate
+pixel probability, all for one class. For Dice with ``smooth=0``, define
+:math:`d=t+M+1`. The increment is evaluated as
+
+.. math::
+
+   2\left(\frac{S+p}{d+1}-\frac{S}{d}\right)
+   = \left(p-\frac{S}{d}\right)\frac{2}{d+1}.
+
+The threshold and scale are computed per class in both PyTorch and Triton.
+The scale must be retained when comparing different classes. For IoU, with
+:math:`a=S+s` and :math:`b=t+M-S+s`, the ordinary smoothing path uses
+
+.. math::
+
+   \frac{a+p}{b+1-p}-\frac{a}{b}
+   = \frac{p-(a/b)(1-p)}{b+(1-p)}.
+
+The empty, zero-probability class retains the ``0/0 := 0`` convention.
+Positive-smoothing Dice and the very-large-smoothing scaled-score branches
+keep their existing formulas. These algebraically equivalent expressions
+avoid subtracting nearly equal overall objectives, improving float32 class
+ordering on large volumes without float64 retries. They do not change binary
+volume search, screening bounds, pruning or eligibility; final multiclass
+labels can differ from older cancellation-prone computations.
+
+
 Experimental RMA safe screening
 -------------------------------
 

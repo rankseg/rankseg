@@ -557,7 +557,12 @@ def _assign_scored_classes(P, Mask, Classes, Mean, N, H, Active, Output, C: tl.c
     n = tl.load(N + row, c < C, other=0).to(mu.dtype)
     mean = tl.load(Mean + row, c < C, other=0)
     denom = n + mean + 1
-    score = 2 * (_divide(mu[:, None] + p, denom[:, None] + 1) - _divide(mu, denom)[:, None])
+    # Match the stable portable increment, with divisions only per class.
+    # Subtracting full before/after objectives loses float32 class ordering
+    # on large volumes. Preserve float64 rather than typing the scale as fp32.
+    threshold = _divide(mu, denom)
+    scale = _divide(tl.full((), 2.0, mu.dtype), denom + 1)
+    score = (p - threshold[:, None]) * scale[:, None]
     score = tl.where(eligible, score, -float("inf"))
     best = tl.max(score, 0)
     winner = tl.min(tl.where(score == best[None, :], c[:, None], CHANNELS), 0).to(tl.int64)

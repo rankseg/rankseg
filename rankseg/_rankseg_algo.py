@@ -623,9 +623,13 @@ def rankseg_rma(
         if metric == "dice":
             denom_offset = opt_tau + pb_mean.unsqueeze(2) + 1
             if smooth == 0:
-                # Keep the common unsmoothed path minimal. This is the exact
-                # change in 2 * mu / (tau + E[Y] + 1) after adding the pixel.
-                raw_increment_scores = 2 * ((mu + probs) / (denom_offset + 1) - mu / denom_offset)
+                # Factor the exact objective increment rather than subtracting
+                # two almost equal overall scores. Large volumes can otherwise
+                # lose or reverse float32 class-score differences. Threshold
+                # and scale are per class, not per pixel; keep the class scale
+                # because assignment compares increments across classes.
+                raw_increment_scores = probs - mu / denom_offset
+                raw_increment_scores.mul_(2.0 / (denom_offset + 1))
             elif use_scaled_scores:
                 # Maximize smooth times the exact objective increment. Scaling
                 # preserves the class ordering while retaining differences
@@ -667,7 +671,14 @@ def rankseg_rma(
                 # all-classes-pruned max-score fallback.
                 safe_denom = torch.where(denom == 0, torch.ones_like(denom), denom)
                 base_scores = (mu + smooth) / safe_denom
-                raw_increment_scores = (mu + probs + smooth) / (denom - probs + 1) - base_scores
+                # (a+p)/(b+1-p) - a/b = (p-(a/b)*(1-p))/(b+1-p).
+                # Avoid cancellation between overall IoU scores. At b=0 the
+                # validated input is an empty zero-probability class (p=a=0),
+                # so the safe base score also preserves the 0/0 := 0 rule.
+                remaining_prob = 1 - probs
+                raw_increment_scores = probs - base_scores * remaining_prob
+                raw_increment_scores.div_(denom + remaining_prob)
+                del remaining_prob
 
         if unassigned_policy == "max_score":
             all_classes_pruned = ~active_mask.any(dim=1, keepdim=True)

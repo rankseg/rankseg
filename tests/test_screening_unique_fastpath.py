@@ -18,7 +18,7 @@ def backend():
 
 def check_assignment(backend, probs, masks, *, policy="max_score", pruning=.5,
                      void_index=-7, saturated=True):
-    """Dense pre-shortcut formula, using identical supplied reduction results."""
+    """Dense stable-score parity, using identical supplied reduction results."""
     original_probs, original_masks = probs.clone(), masks.clone()
     counts = masks.sum(1)
     status, n, h = backend.unique_statistics(masks.contiguous(), probs)
@@ -29,7 +29,7 @@ def check_assignment(backend, probs, masks, *, policy="max_score", pruning=.5,
     eligible = torch.where((counts > 0)[:, None], masks, effective_active[:, :, None])
     denom = (n.to(probs.dtype) + means + 1)[:, :, None]
     mass = h[:, :, None]
-    scores = 2 * ((mass + probs) / (denom + 1) - mass / denom)
+    scores = (probs - mass / denom) * (2.0 / (denom + 1))
     expected = scores.masked_fill(~eligible, -torch.inf).argmax(1)
     if policy == "void":
         expected[counts == 0] = void_index
@@ -126,7 +126,8 @@ def test_overlap_ties_and_adjacent_float_scores(backend, dtype):
     assert (result[:, 192:] == 0).all()
     probs[:, 2, 200] = torch.nextafter(probs[:, 2, 200], probs.new_tensor(1.))
     probs[:, 1, 400] = torch.nextafter(probs[:, 1, 400], probs.new_tensor(0.))
-    check_assignment(backend, probs, masks, pruning=0.)
+    result = check_assignment(backend, probs, masks, pruning=0.)
+    assert result[0, 200] == 2  # Do not round away the higher overlap probability.
 
 
 @pytest.mark.parametrize("dtype", [torch.float32, torch.float64])

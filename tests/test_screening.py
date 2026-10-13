@@ -33,7 +33,11 @@ def _assert_epsilon_optimal(probs, mask, pruning_prob=0.5):
 
 
 def _multiclass_reference(probs, masks, pruning_prob, policy, void_index, means=None, unique_stats=None):
-    """Apply the existing unsmoothed assignment rule to screened binary masks."""
+    """Check stable-score floating-point parity, statistics and eligibility.
+
+    Independent exact before/after objectives (including a large-volume
+    cancellation regression) are checked in test_increment_stability.py.
+    """
     probs = probs if probs.dtype == torch.float64 else probs.float()
     values = probs.flatten(2)
     masks = masks.flatten(2)
@@ -51,7 +55,7 @@ def _multiclass_reference(probs, masks, pruning_prob, policy, void_index, means=
     # in the CUDA statistics reduction tree (tested independently).
     means = values.sum(-1, keepdim=True) if means is None else means[..., None]
     denom = volume + means + 1
-    increments = 2 * ((mass + values) / (denom + 1) - mass / denom)
+    increments = (values - mass / denom) * (2.0 / (denom + 1))
     active = values.amax(-1) > pruning_prob
     if policy == "max_score":
         active = active | ~active.any(1, keepdim=True)
