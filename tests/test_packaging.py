@@ -23,7 +23,7 @@ def setup_metadata(monkeypatch):
     return namespace, captured
 
 
-@pytest.mark.parametrize("version", ["0.0.6", "0.0.7", "0.1.0"])
+@pytest.mark.parametrize("version", ["0.0.6", "0.0.7", "0.0.8", "0.1.0"])
 @pytest.mark.parametrize("quote", ['"', "'"])
 def test_pypi_description_uses_release_pinned_light_fallback(setup_metadata, version, quote):
     namespace, _ = setup_metadata
