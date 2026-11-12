@@ -1,7 +1,9 @@
 # Author: Ben Dai <bendai@cuhk.edu.hk>, Zixun Wang <zixunwang@link.cuhk.edu.hk>
 # License: BSD 3 clause
 
-from numbers import Real
+import warnings
+from collections.abc import Sequence
+from numbers import Integral, Real
 from typing import Literal, Union
 
 import torch
@@ -22,6 +24,10 @@ _RMA_CUDA_VECTORIZED_MASK_MAX_DIM = 524_288
 # Decimal probability count B*C*D, not spatial size or bytes. This empirical
 # auto policy trades modest latency increases for lower sorting memory.
 _RMA_CUDA_SCREENING_AUTO_MIN_ELEMENTS = 1_280_000
+_DEP_MAX_ITERS = 10
+_DEP_TOL = 1e-6
+# Bound the padded FFT workspace (elements per chunk), not the input size.
+_DEP_FFT_CHUNK_NUMEL = 2**27
 
 
 def _rma_dice_use_screening(probs: torch.Tensor, mode: Union[bool, Literal["auto"]]) -> bool:
@@ -792,3 +798,366 @@ def rankseg_rma(
         preds = nonoverlap_preds.reshape(batch_size, *image_shape)
 
     return preds if output_mode == "multilabel" else preds.long()
+
+
+def _dep_half_widths(kernel_size, image_shape):
+    """Return per-axis kernel half widths, clipped to the largest displacement."""
+    ndim = len(image_shape)
+    if kernel_size is None:
+        return tuple(n - 1 for n in image_shape)
+    if isinstance(kernel_size, Integral) and not isinstance(kernel_size, bool):
+        sizes = (int(kernel_size),) * ndim
+    elif isinstance(kernel_size, Sequence) and not isinstance(kernel_size, str):
+        sizes = tuple(validate_integral("kernel_size", size) for size in kernel_size)
+        if len(sizes) != ndim:
+            raise ValueError(f"kernel_size must have one entry per spatial dimension ({ndim})")
+    else:
+        raise TypeError("kernel_size must be None, an int, or a sequence of ints")
+    if any(size <= 0 or size % 2 == 0 for size in sizes):
+        raise ValueError("kernel_size entries must be positive odd integers")
+    # Displacements beyond n - 1 never occur inside the image, so a larger
+    # kernel is equivalent to the full kernel.
+    return tuple(min(size // 2, n - 1) for size, n in zip(sizes, image_shape))
+
+
+def _dep_gaussian_convolve(x: torch.Tensor, theta: float, half_widths) -> torch.Tensor:
+    """Zero-padded linear convolution of x (rows, \\*image_shape) with a truncated Gaussian.
+
+    The kernel exp(-||delta||^2 / (2 theta^2)) is separable, so an N-D
+    convolution is a sequence of 1-D FFT convolutions, one per spatial axis.
+    Padding each axis to n + half suffices to avoid circular wrap-around.
+    """
+    for axis, half in enumerate(half_widths):
+        dim = axis + 1
+        n = x.shape[dim]
+        length = n + half
+        offsets = torch.arange(length, device=x.device)
+        signed = torch.where(offsets <= half, offsets, offsets - length).to(x.dtype)
+        weights = torch.exp(-signed.square() / (2 * theta**2))
+        weights.masked_fill_(signed.abs() > half, 0)
+        view_shape = [1] * x.ndim
+        view_shape[dim] = -1
+        weights_fft = torch.fft.rfft(weights).view(view_shape)
+        x = torch.fft.irfft(torch.fft.rfft(x, n=length, dim=dim) * weights_fft, n=length, dim=dim)
+        x = x.narrow(dim, 0, n)
+    return x
+
+
+def _dep_volume_means(probs: torch.Tensor, theta: float, half_widths) -> torch.Tensor:
+    r"""Estimate the per-pixel conditional volume mean under spatially localized dependence.
+
+    For probability rows of shape (rows, \*image_shape), return
+    ``q + (nu / p) * (nu * kappa)`` flattened to (rows, dim), where
+    ``q = sum(p)``, ``nu = sqrt(p (1 - p))`` and ``kappa`` is the Gaussian kernel.
+    """
+    rows, *image_shape = probs.shape
+    dim = probs[0].numel() if rows else 0
+    nu = torch.sqrt(probs * (1 - probs) + 1e-10)
+    padded_numel = dim
+    for n, half in zip(image_shape, half_widths):
+        padded_numel = padded_numel // n * (n + half)
+    chunk = max(1, _DEP_FFT_CHUNK_NUMEL // max(padded_numel, 1))
+    nu_conv = torch.empty_like(nu)
+    for start in range(0, rows, chunk):
+        nu_conv[start:start + chunk] = _dep_gaussian_convolve(nu[start:start + chunk], theta, half_widths)
+    # Rounding in the FFT can produce tiny negative values for a
+    # nonnegative convolution.
+    nu_conv.clamp_(min=0)
+    probs = probs.flatten(1)
+    q = probs.sum(dim=-1, keepdim=True)
+    return q + (nu.flatten(1) / (probs + 1e-8)) * nu_conv.flatten(1)
+
+
+def _dep_fixed_point_masks(
+    probs: torch.Tensor,
+    mu: torch.Tensor,
+    sorted_prob: torch.Tensor,
+    sorted_index: torch.Tensor,
+) -> tuple[torch.Tensor, int]:
+    r"""Binary masks for rows of shape (rows, dim) by the DEP fixed-point search.
+
+    Each iteration ranks pixels by the current score, maximizes the
+    second-order reciprocal moment approximation of
+    ``sum_{j in S} p_j / (|S| + mu_j)`` over the volume, and re-ranks by
+    ``p / (mu + tau)``, where tau is the zero-based optimal index as in the
+    reference implementation. A row stops once its best objective changes by
+    less than ``_DEP_TOL``, after at most ``_DEP_MAX_ITERS`` iterations.
+    Returns the masks and the number of rows that did not converge, which keep
+    their last iterate.
+    """
+    rows, dim = probs.shape
+    device, dtype = probs.device, probs.dtype
+    taus = torch.arange(1, dim + 1, device=device, dtype=dtype)
+    final_index = torch.empty_like(sorted_index)
+    final_tau = torch.zeros(rows, dtype=torch.long, device=device)
+    best_prev = torch.full((rows,), -1.0, dtype=dtype, device=device)
+    score = None
+    pending = torch.arange(rows, device=device)
+    for it in range(_DEP_MAX_ITERS):
+        if it == 0:
+            index, ranked_prob = sorted_index, sorted_prob
+        else:
+            index = torch.sort(score, dim=-1, descending=True)[1]
+            ranked_prob = torch.gather(probs[pending], -1, index)
+        row_mu = mu[pending]
+        ranked_mu = torch.gather(row_mu, -1, index)
+
+        mean = torch.cumsum(ranked_mu, dim=-1).div_(taus)
+        z0 = torch.cumsum(ranked_prob, dim=-1)
+        weighted = ranked_prob * ranked_mu
+        z1 = torch.cumsum(weighted, dim=-1)
+        z2 = torch.cumsum(weighted.mul_(ranked_mu), dim=-1)
+        del weighted, ranked_prob, ranked_mu
+        discount = (taus + mean).reciprocal_()
+        first = (z1 - mean * z0).mul_(discount.square())
+        second = (z2 - 2 * mean * z1 + mean.square() * z0).mul_(discount.pow(3))
+        objective = z0.mul_(discount).sub_(first).add_(second)
+        del mean, z1, z2, discount, first, second
+
+        opt_tau = torch.argmax(objective, dim=-1)
+        best = objective.gather(-1, opt_tau.unsqueeze(-1)).squeeze(-1)
+        del objective
+        final_index[pending] = index
+        final_tau[pending] = opt_tau + 1
+
+        converged = (best - best_prev[pending]).abs() < _DEP_TOL
+        best_prev[pending] = best
+        score = probs[pending] / (row_mu + opt_tau.unsqueeze(-1))
+        score = score[~converged]
+        pending = pending[~converged]
+        if pending.numel() == 0:
+            break
+
+    rank_positions = torch.arange(dim, device=device).view(1, -1)
+    selected_by_rank = rank_positions < final_tau.unsqueeze(-1)
+    masks = torch.empty_like(selected_by_rank).scatter_(1, final_index, selected_by_rank)
+    return masks, pending.numel()
+
+
+def rankseg_dep(
+    probs: torch.Tensor,
+    metric: str = "dice",
+    smooth: float = 0.0,
+    output_mode: str = "multiclass",
+    pruning_prob: float = 0.5,
+    theta: float = 300.0,
+    kernel_size=None,
+    unassigned_policy: str = "max_score",
+    void_index: int = 255,
+) -> torch.Tensor:
+    r"""
+    Produce the predicted segmentation by RankSEG under spatially localized label dependence (DEP).
+
+    RankSEG-RMA assumes that pixel labels are conditionally independent given
+    the image. DEP relaxes this assumption: labels of nearby pixels are
+    correlated with strength given by a Gaussian kernel of bandwidth `theta`.
+    The dependence enters through a per-pixel conditional volume mean, and
+    each class mask is found by a fixed-point search over a second-order
+    reciprocal moment approximation of the Dice objective.
+
+    Parameters
+    ----------
+    probs : Tensor, shape (batch_size, num_class, \*image_shape)
+        The estimated probability tensor. Must use a real floating-point dtype
+        with finite values in the range [0, 1]. image_shape may have any number
+        of dimensions (for example 2D images or 3D volumes).
+
+    metric : str, default='dice'
+        The metric to optimize. Only 'dice' is supported; 'iou' raises an error.
+
+    smooth : float, default=0.0
+        Accepted for interface compatibility with RMA. Only 0 is supported.
+
+    output_mode : {'multiclass', 'multilabel'}, default='multiclass'
+        Controls overlap behavior of the predictions.
+        - 'multiclass': non-overlapping; each pixel belongs to exactly one class.
+        - 'multilabel': overlapping; pixels can belong to multiple classes (binary mask per class).
+
+    pruning_prob : float, default=0.5
+        The threshold for pruning, if all probabilities are less than or equal to `pruning_prob`,
+        we skip the class.
+
+    theta : float, default=300.0
+        Bandwidth, in pixels, of the Gaussian dependence kernel
+        ``exp(-||delta||^2 / (2 theta^2))``. Must be finite and positive.
+
+    kernel_size : None, int or sequence of int, default=None
+        Spatial support of the dependence kernel. None uses every displacement
+        within the image (no truncation). An int truncates every spatial axis
+        to that odd size; a sequence gives one odd size per spatial axis.
+
+    unassigned_policy : {'max_score', 'void'}, default='max_score'
+        Policy for pixels that are not selected by any class in multiclass
+        mode. Overlapping and unassigned pixels follow the same rules as RMA:
+        an overlap goes to the selecting class with the largest incremental
+        score; with 'max_score' an unassigned pixel goes to the active class
+        (or any class, if pruning removes every class in a sample) with the
+        largest incremental score; with 'void' it is assigned `void_index`.
+        The incremental score is the DEP objective change from assigning the
+        pixel after fixing pixels selected by exactly one class.
+
+    void_index : int, default=255
+        Label used for unassigned pixels when `unassigned_policy == 'void'`.
+        The same restrictions as for RMA apply.
+
+    Returns
+    -------
+    preds : Tensor
+        If ``output_mode == 'multilabel'``, returns boolean masks of shape
+        (batch_size, num_class, \*image_shape) with dtype ``torch.bool``.
+        Otherwise, returns class-index maps with dtype ``torch.int64`` and
+        shape (batch_size, \*image_shape).
+
+    Notes
+    -----
+    This is a discrete inference-time post-processing operation. Gradient
+    recording is disabled internally, even when ``probs.requires_grad`` is
+    ``True``. A RuntimeWarning is issued if the fixed-point search does not
+    converge within 10 iterations; the last iterate is used.
+
+    References
+    ----------
+    :cite:p:`wang2026rankseg` Wang, Z., & Dai, B. (2026). On the Relaxation of Conditional Independence Assumption for Image Segmentation. Advances in Neural Information Processing Systems (NeurIPS 2026).
+    """
+
+    validate_probability_tensor(probs, check_values=False)
+    _validate_probability_values(probs)
+    if not isinstance(metric, str):
+        raise TypeError("metric must be a string")
+    if not isinstance(output_mode, str):
+        raise TypeError("output_mode must be a string")
+    if not isinstance(unassigned_policy, str):
+        raise TypeError("unassigned_policy must be a string")
+    smooth = validate_finite_real("smooth", smooth)
+    if smooth != 0:
+        raise ValueError("the DEP solver supports only smooth=0")
+    pruning_prob = validate_finite_real("pruning_prob", pruning_prob)
+    if not 0 <= pruning_prob <= 1:
+        raise ValueError("pruning_prob must be in the range [0, 1]")
+    theta = validate_finite_real("theta", theta)
+    if theta <= 0:
+        raise ValueError("theta must be positive")
+    if probs.dtype in (torch.float16, torch.bfloat16):
+        probs = probs.float()
+
+    metric = metric.strip().lower()
+    output_mode = output_mode.strip().lower()
+    unassigned_policy = unassigned_policy.strip().lower()
+    if metric == "iou":
+        raise ValueError("the DEP solver supports only metric='dice'; IoU is not supported")
+    if metric != "dice":
+        raise ValueError("metric should be dice")
+    if output_mode not in ["multiclass", "multilabel"]:
+        raise ValueError("output_mode should be multiclass or multilabel")
+    if output_mode == "multiclass" and probs.shape[1] == 1:
+        raise ValueError(
+            "Single-channel probabilities cannot produce a binary multiclass label map; "
+            "use output_mode='multilabel' or provide background and foreground channels"
+        )
+    if unassigned_policy not in ["max_score", "void"]:
+        raise ValueError("unassigned_policy should be max_score or void")
+    void_index = validate_integral("void_index", void_index)
+    if output_mode == "multilabel" and unassigned_policy != "max_score":
+        raise ValueError("unassigned_policy='void' is only supported when output_mode='multiclass'")
+    if void_index != 255 and (output_mode != "multiclass" or unassigned_policy != "void"):
+        raise ValueError("a non-default void_index requires output_mode='multiclass' and unassigned_policy='void'")
+    if output_mode == "multiclass" and unassigned_policy == "void":
+        int64_info = torch.iinfo(torch.int64)
+        if not int64_info.min <= void_index <= int64_info.max:
+            raise ValueError("void_index must be representable as torch.int64")
+        if 0 <= void_index < probs.shape[1]:
+            raise ValueError("void_index must lie outside the valid class index range [0, num_class)")
+
+    batch_size, num_classes, *image_shape = probs.shape
+    half_widths = _dep_half_widths(kernel_size, image_shape)
+
+    def convert_to_nonoverlap(
+        overlap_preds: torch.Tensor,
+        probs: torch.Tensor,
+        mu: torch.Tensor,
+        active_mask: torch.Tensor,
+        mu_mask: torch.Tensor,
+    ) -> torch.Tensor:
+        class_counts = overlap_preds.sum(dim=1)
+        unassigned_mask = class_counts == 0
+        has_selected_mask = class_counts > 0
+        safe_to_predict = overlap_preds & (class_counts == 1).unsqueeze(1)
+
+        # With t pixels fixed for a class and d_j = t + mu_j + 1, the objective
+        # sum_{i in P} 2 p_i / d_i changes by
+        #   2 p_j / (d_j + 1) - sum_{i in P} 2 p_i / (d_i (d_i + 1))
+        # when pixel j is added. Factoring the difference avoids subtracting
+        # two almost equal overall objectives.
+        opt_tau = safe_to_predict.sum(dim=2, keepdim=True).to(probs.dtype)
+        denom = opt_tau + mu + 1
+        next_denom = denom + 1
+        penalty = (2 * probs / (denom * next_denom) * safe_to_predict).sum(dim=2, keepdim=True)
+        raw_increment_scores = (2 * probs / next_denom).sub_(penalty)
+        del denom, next_denom, penalty
+
+        if unassigned_policy == "max_score":
+            all_classes_pruned = ~active_mask.any(dim=1, keepdim=True)
+            unassigned_eligible_classes = active_mask | all_classes_pruned
+        else:
+            unassigned_eligible_classes = active_mask
+        eligible_mask = torch.where(
+            has_selected_mask.unsqueeze(1),
+            overlap_preds,
+            unassigned_eligible_classes.unsqueeze(2),
+        )
+        eligible_increment_scores = torch.where(
+            eligible_mask & mu_mask.unsqueeze(2),
+            raw_increment_scores,
+            float("-inf"),
+        )
+        nonoverlap_predicts = eligible_increment_scores.argmax(dim=1)
+        if unassigned_policy == "void":
+            nonoverlap_predicts[unassigned_mask] = void_index
+        return nonoverlap_predicts
+
+    flat_probs = torch.flatten(probs, start_dim=2, end_dim=-1)
+    dim = flat_probs.shape[-1]
+    sorted_prob, top_index = torch.sort(flat_probs, dim=-1, descending=True)
+    active_mask = sorted_prob[:, :, 0] > pruning_prob
+
+    # Volume means are needed for active classes and, for the multiclass
+    # max-score fallback, for every class of a sample with no active class.
+    mu_mask = active_mask.clone()
+    if output_mode == "multiclass" and unassigned_policy == "max_score":
+        mu_mask |= ~active_mask.any(dim=1, keepdim=True)
+    mu_rows = mu_mask.flatten().nonzero().squeeze(1)
+    row_probs = probs.reshape(batch_size * num_classes, *image_shape)[mu_rows]
+    row_mu = _dep_volume_means(row_probs, theta, half_widths)
+    del row_probs
+
+    overlap_preds = torch.zeros(batch_size * num_classes, dim, dtype=torch.bool, device=flat_probs.device)
+    active_rows = active_mask.flatten().nonzero().squeeze(1)
+    if active_rows.numel() > 0:
+        # Positions of the active rows within mu_rows; both are sorted.
+        active_in_mu = torch.searchsorted(mu_rows, active_rows)
+        overlap_preds[active_rows], unconverged = _dep_fixed_point_masks(
+            flat_probs.reshape(-1, dim)[active_rows],
+            row_mu[active_in_mu],
+            sorted_prob.reshape(-1, dim)[active_rows],
+            top_index.reshape(-1, dim)[active_rows],
+        )
+        if unconverged:
+            warnings.warn(
+                f"DEP fixed-point iteration did not converge for {unconverged} of {active_rows.numel()} "
+                f"class masks within {_DEP_MAX_ITERS} iterations; using the last iterate",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+    del sorted_prob, top_index
+    overlap_preds = overlap_preds.view(batch_size, num_classes, dim)
+
+    if output_mode == "multilabel":
+        return overlap_preds.reshape(batch_size, num_classes, *image_shape)
+
+    mu = torch.zeros(batch_size * num_classes, dim, dtype=flat_probs.dtype, device=flat_probs.device)
+    mu[mu_rows] = row_mu
+    del row_mu
+    nonoverlap_preds = convert_to_nonoverlap(
+        overlap_preds, flat_probs, mu.view(batch_size, num_classes, dim), active_mask, mu_mask,
+    )
+    return nonoverlap_preds.reshape(batch_size, *image_shape).long()

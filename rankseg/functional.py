@@ -5,11 +5,12 @@ import warnings
 
 import torch
 
-from rankseg._rankseg_algo import rankdice_ba, rankseg_rma
+from rankseg._rankseg_algo import rankdice_ba, rankseg_dep, rankseg_rma
 from rankseg._validation import validate_finite_real, validate_probability_tensor
 
 _SOLVER_DISPLAY_NAMES = {
     "rma": "RMA",
+    "dep": "DEP",
     "ba": "BA",
     "trna": "TRNA",
     "ba+trna": "BA+TRNA",
@@ -21,8 +22,8 @@ _SOLVER_DISPLAY_NAMES = {
 def _supported_solvers(metric, output_mode, num_class):
     if metric == "dice":
         if output_mode == "multiclass":
-            return ("rma",)
-        return ("rma", "ba", "trna", "ba+trna")
+            return ("rma", "dep")
+        return ("rma", "ba", "trna", "ba+trna", "dep")
     if metric == "iou":
         return ("rma",)
     if num_class == 1:
@@ -35,6 +36,8 @@ def _supported_solvers(metric, output_mode, num_class):
 def _validate_solver_compatibility(metric, output_mode, solver, num_class):
     if metric == "dice" and solver == "exact":
         raise ValueError("Exact solver is not implemented yet")
+    if solver == "dep" and metric != "dice":
+        raise ValueError(f"solver 'DEP' supports only metric='dice', got metric={metric!r}")
 
     supported = _supported_solvers(metric, output_mode, num_class)
     if solver not in supported:
@@ -50,6 +53,10 @@ def _validate_solver_compatibility(metric, output_mode, solver, num_class):
 def _validate_solver_params(solver, output_mode, solver_params):
     if solver == "rma":
         allowed = {"safe_screening"}
+        if output_mode == "multiclass":
+            allowed |= {"unassigned_policy", "void_index"}
+    elif solver == "dep":
+        allowed = {"theta", "kernel_size"}
         if output_mode == "multiclass":
             allowed |= {"unassigned_policy", "void_index"}
     elif solver in {"ba", "trna", "ba+trna"}:
@@ -69,7 +76,7 @@ def _validate_solver_params(solver, output_mode, solver_params):
             )
         raise TypeError(f"solver {solver_name!r} does not accept solver parameters: {names}")
 
-    if solver == "rma" and "void_index" in solver_params:
+    if solver in {"rma", "dep"} and "void_index" in solver_params:
         policy = solver_params.get("unassigned_policy", "max_score")
         if not isinstance(policy, str) or policy.strip().lower() != "void":
             raise ValueError("void_index requires unassigned_policy='void'")
@@ -212,7 +219,16 @@ def rankseg(
     _validate_solver_params(solver, output_mode, solver_params)
 
     if metric == "dice":
-        if solver == "rma":
+        if solver == "dep":
+            preds = rankseg_dep(
+                probs,
+                metric="dice",
+                output_mode=output_mode,
+                smooth=smooth,
+                pruning_prob=pruning_prob,
+                **solver_params,
+            )
+        elif solver == "rma":
             preds = rankseg_rma(
                 probs,
                 metric="dice",

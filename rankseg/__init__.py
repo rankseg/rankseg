@@ -3,7 +3,7 @@ from importlib.metadata import version as _distribution_version
 
 from . import distribution, functional
 from ._rankseg import RankSEG
-from ._rankseg_algo import rankdice_ba, rankseg_rma
+from ._rankseg_algo import rankdice_ba, rankseg_dep, rankseg_rma
 from .distribution import RefinedNormal, RefinedNormalPB
 
 try:
@@ -20,4 +20,5 @@ __all__ = (
     "RefinedNormal",
     "rankdice_ba",
     "rankseg_rma",
+    "rankseg_dep",
 )
