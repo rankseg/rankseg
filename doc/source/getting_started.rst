@@ -387,6 +387,11 @@ RankSEG offers multiple solver algorithms, each optimized for specific metrics a
      - ``'multiclass'``, ``'multilabel'``
      - Fastest
      - **Recommended for most cases.** Reciprocal Moment Approximation. Works for both binary and multiclass segmentation. Good balance of speed and accuracy.
+   * - ``'DEP'``
+     - Dice
+     - ``'multiclass'``, ``'multilabel'``
+     - Moderate
+     - RMA under spatially localized label dependence :cite:p:`wang2026rankseg`. Relaxes the conditional independence assumption with a Gaussian kernel of bandwidth ``theta`` (default ``300``, in pixels). Requires ``smooth=0``. Several times slower than RMA because of FFT convolution and a fixed-point search.
    * - ``'BA'``
      - Dice
      - ``'multilabel'``
@@ -423,6 +428,9 @@ Example with solver parameters:
    # RMA solver (default; supports Dice and IoU)
    rankseg = RankSEG(metric='dice', solver='RMA')
 
+   # DEP solver: label dependence with a Gaussian kernel of bandwidth theta (pixels)
+   rankseg = RankSEG(metric='dice', solver='DEP', theta=300.0)
+
    # BA solver with custom epsilon
    rankseg = RankSEG(metric='dice', solver='BA', output_mode='multilabel', eps=1e-4)
 
@@ -445,8 +453,8 @@ predictions.
 Device behavior
 ---------------
 
-RankSEG returns predictions on the same device as ``probs``. RMA runs natively
-on that device. For Dice multilabel solvers on an accelerator, BA retains
+RankSEG returns predictions on the same device as ``probs``. RMA and DEP run
+natively on that device. For Dice multilabel solvers on an accelerator, BA retains
 ranking and convolution on the input device. TRNA and BA+TRNA also retain
 ranking and scoring there, while their SciPy-backed probability calculations
 are staged through the CPU and copied back in bounded chunks to avoid a device
@@ -484,7 +492,13 @@ Best Practices
 
 4. **For small images**: Consider using BA, TRNA, or BA+TRNA solvers for Dice metric to achieve better accuracy.
 
-5. **Choose devices deliberately**: RMA and large BA problems can benefit from
+5. **For 2D images or slices with ambiguous regions**: Consider DEP for Dice. It
+   uses label dependence between nearby pixels and helps most on low-contrast
+   regions and small objects. The default ``theta=300`` was chosen for 2D
+   images; for 3D volumes with anisotropic voxel spacing, start with RMA and
+   validate DEP and ``theta`` on representative data.
+
+6. **Choose devices deliberately**: RMA, DEP, and large BA problems can benefit from
    CUDA. TRNA is sequential and may remain faster on CPU for small inputs, so
    benchmark representative shapes in latency-sensitive pipelines.
 
@@ -506,7 +520,9 @@ A: Use multiclass (``output_mode='multiclass'``) when classes are mutually exclu
 
 A: Start with ``'RMA'`` for Dice or IoU. For Dice metric on small images, try
 ``'BA'``, ``'TRNA'``, or ``'BA+TRNA'`` with ``output_mode='multilabel'`` for
-potentially better accuracy. For Accuracy metric, explicitly use ``'argmax'``
+potentially better accuracy. For Dice on 2D images, ``'DEP'`` models label
+dependence between nearby pixels and can improve on RMA at a higher runtime
+cost. For Accuracy metric, explicitly use ``'argmax'``
 for multiclass or ``'TR'`` for multilabel.
 
 **Q: What does the ``eps`` parameter do?**

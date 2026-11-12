@@ -5,7 +5,7 @@ from rankseg.functional import rankseg
 
 
 class RankSEG(object):
-    r"""RankSEG segmentation prediction module for optimizing segmentation metrics :cite:p:`dai2023rankseg`, :cite:p:`wang2025rankseg`.
+    r"""RankSEG segmentation prediction module for optimizing segmentation metrics :cite:p:`dai2023rankseg`, :cite:p:`wang2025rankseg`, :cite:p:`wang2026rankseg`.
 
     This class converts probability maps into segmentation predictions targeting
     the supported Dice, IoU, and Accuracy metrics.
@@ -50,6 +50,8 @@ class RankSEG(object):
           - 'TRNA': Truncated refined normal approximation, for 'multilabel' output
           - 'BA+TRNA': Automatically select from 'BA' or 'TRNA', for 'multilabel' output
           - 'RMA': Reciprocal moment approximation, for 'multiclass' or 'multilabel' output
+          - 'DEP': RMA under spatially localized label dependence, for
+            'multiclass' or 'multilabel' output; requires ``smooth=0``
 
         - When metric is 'IoU':
 
@@ -92,6 +94,10 @@ class RankSEG(object):
         combinations keep full sort. Direct argmax breaks exactly equal
         computed maxima by the smallest searched volume; masks need
         not match the default full-sort path bit for bit.
+        For 'DEP', ``theta`` (default 300.0) is the bandwidth, in pixels, of
+        the Gaussian dependence kernel, which covers the whole image; it must
+        be finite and positive.
+        unassigned_policy and void_index behave as for 'RMA'.
         Unsupported parameters raise an error rather than being ignored.
 
     References
@@ -99,6 +105,8 @@ class RankSEG(object):
     :cite:p:`dai2023rankseg` Dai, B., & Li, C. (2023). Rankseg: a consistent ranking-based framework for segmentation. Journal of Machine Learning Research, 24(224), 1-50.
 
     :cite:p:`wang2025rankseg` Wang, Z., & Dai, B. (2025). RankSEG-RMA: An Efficient Segmentation Algorithm via Reciprocal Moment Approximation. Advances in Neural Information Processing Systems (NeurIPS 2025).
+
+    :cite:p:`wang2026rankseg` Wang, Z., & Dai, B. (2026). On the Relaxation of Conditional Independence Assumption for Image Segmentation. Advances in Neural Information Processing Systems (NeurIPS 2026).
 
     Examples
     --------

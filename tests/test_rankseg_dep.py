@@ -9,7 +9,7 @@ import torch.nn.functional as F
 
 import rankseg._rankseg_algo as algo_module
 from rankseg import RankSEG, rankseg_dep
-from rankseg._rankseg_algo import _dep_fixed_point_masks, _dep_half_widths, _dep_volume_means
+from rankseg._rankseg_algo import _dep_fixed_point_masks, _dep_volume_means
 from rankseg.functional import rankseg
 
 DEVICES = [
@@ -25,16 +25,13 @@ def _smooth_probs(batch, classes, shape, seed=0, scale=3.0, dtype=torch.float32)
     return F.interpolate(coarse, size=shape, mode=mode, align_corners=False).softmax(dim=1).to(dtype)
 
 
-def _oracle_volume_means(probs, theta, kernel_size=None):
+def _oracle_volume_means(probs, theta):
     """Direct O(d^2) evaluation of q + (nu / p) * (nu * kappa) in float64."""
     rows, *shape = probs.shape
     probs = probs.double()
     coords = torch.tensor(list(itertools.product(*(range(n) for n in shape))), dtype=torch.float64)
     delta = coords[:, None, :] - coords[None, :, :]
     kernel = torch.exp(-delta.square().sum(-1) / (2 * theta**2))
-    if kernel_size is not None:
-        half = torch.tensor([s // 2 for s in kernel_size], dtype=torch.float64)
-        kernel = kernel * (delta.abs() <= half).all(-1)
     flat = probs.reshape(rows, -1)
     nu = torch.sqrt(flat * (1 - flat) + 1e-10)
     return flat.sum(-1, keepdim=True) + nu / (flat + 1e-8) * (nu @ kernel.T)
@@ -63,38 +60,26 @@ def _oracle_fixed_point_mask(prob, mu, max_iters=10, tol=1e-6):
     return mask
 
 
-@pytest.mark.parametrize(
-    "shape, kernel_size",
-    [((11,), None), ((7, 9), None), ((7, 9), (3, 5)), ((4, 5, 6), None), ((4, 5, 6), 3)],
-)
+@pytest.mark.parametrize("shape", [(11,), (7, 9), (4, 5, 6)])
 @pytest.mark.parametrize("theta", [1.5, 300.0])
-def test_volume_means_match_direct_kernel_sum(shape, kernel_size, theta):
+def test_volume_means_match_direct_kernel_sum(shape, theta):
     probs = _smooth_probs(1, 3, shape, dtype=torch.float64)[0]
-    half = _dep_half_widths(kernel_size, shape)
-    actual = _dep_volume_means(probs, theta, half)
-    sizes = None if kernel_size is None else (
-        (kernel_size,) * len(shape) if isinstance(kernel_size, int) else kernel_size
-    )
-    expected = _oracle_volume_means(probs, theta, sizes)
+    actual = _dep_volume_means(probs, theta)
+    expected = _oracle_volume_means(probs, theta)
     torch.testing.assert_close(actual, expected, rtol=1e-10, atol=0)
 
 
 def test_volume_means_chunking_matches_unchunked(monkeypatch):
     probs = _smooth_probs(1, 5, (12, 10), dtype=torch.float64)[0]
-    half = _dep_half_widths(None, (12, 10))
-    expected = _dep_volume_means(probs, 4.0, half)
+    expected = _dep_volume_means(probs, 4.0)
     monkeypatch.setattr(algo_module, "_DEP_FFT_CHUNK_NUMEL", 1)
-    torch.testing.assert_close(_dep_volume_means(probs, 4.0, half), expected, rtol=0, atol=0)
-
-
-def test_oversized_kernel_is_equivalent_to_full_kernel():
-    assert _dep_half_widths(101, (7, 9)) == _dep_half_widths(None, (7, 9)) == (6, 8)
+    torch.testing.assert_close(_dep_volume_means(probs, 4.0), expected, rtol=0, atol=0)
 
 
 @pytest.mark.parametrize("dtype", [torch.float32, torch.float64])
 def test_fixed_point_masks_match_row_by_row_reference(dtype):
     probs = _smooth_probs(2, 4, (24, 20), seed=3).flatten(2).reshape(8, -1).to(dtype)
-    mu = _dep_volume_means(probs.reshape(8, 24, 20), 300.0, _dep_half_widths(None, (24, 20)))
+    mu = _dep_volume_means(probs.reshape(8, 24, 20), 300.0)
     sorted_prob, sorted_index = torch.sort(probs, dim=-1, descending=True)
     actual, unconverged = _dep_fixed_point_masks(probs, mu, sorted_prob, sorted_index)
     assert unconverged == 0
@@ -116,7 +101,7 @@ def test_multiclass_assignment_matches_objective_increment_oracle(seed, policy):
     masks = rankseg_dep(probs, theta=5.0, output_mode="multilabel")[0].flatten(1)
     flat = probs[0].flatten(1)
     active = flat.amax(-1) > 0.5
-    mu = _dep_volume_means(probs[0], 5.0, _dep_half_widths(None, (10, 12)))
+    mu = _dep_volume_means(probs[0], 5.0)
     counts = masks.sum(0)
     fixed = masks & (counts == 1)
     for j in range(flat.shape[1]):
@@ -159,9 +144,9 @@ def test_cuda_matches_cpu_in_float64(output_mode):
 
 def test_class_and_functional_interfaces_agree():
     probs = _smooth_probs(2, 4, (16, 16))
-    expected = rankseg_dep(probs, theta=50.0, kernel_size=9)
-    assert torch.equal(RankSEG(solver="dep", theta=50.0, kernel_size=9)(probs), expected)
-    assert torch.equal(rankseg(probs, solver=" DEP ", theta=50.0, kernel_size=9), expected)
+    expected = rankseg_dep(probs, theta=50.0)
+    assert torch.equal(RankSEG(solver="dep", theta=50.0)(probs), expected)
+    assert torch.equal(rankseg(probs, solver=" DEP ", theta=50.0), expected)
 
 
 @pytest.mark.parametrize("dtype", [torch.float16, torch.bfloat16])
@@ -213,11 +198,7 @@ def test_dep_rejects_non_dice_metrics(metric):
         ({"theta": -1.0}, ValueError, "theta must be positive"),
         ({"theta": float("nan")}, ValueError, "theta must be finite"),
         ({"theta": "300"}, TypeError, "theta must be a real number"),
-        ({"kernel_size": 4}, ValueError, "positive odd"),
-        ({"kernel_size": 0}, ValueError, "positive odd"),
-        ({"kernel_size": (3,)}, ValueError, "one entry per spatial dimension"),
-        ({"kernel_size": 3.0}, TypeError, "kernel_size must be"),
-        ({"kernel_size": "3"}, TypeError, "kernel_size must be"),
+        ({"kernel_size": 3}, TypeError, "does not accept solver parameters: kernel_size"),
         ({"amplitude": 1.0}, TypeError, "does not accept solver parameters: amplitude"),
         ({"safe_screening": True}, TypeError, "does not accept solver parameters: safe_screening"),
         ({"output_mode": "multilabel", "unassigned_policy": "void"}, TypeError, "does not accept"),

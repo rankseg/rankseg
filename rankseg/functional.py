@@ -56,7 +56,7 @@ def _validate_solver_params(solver, output_mode, solver_params):
         if output_mode == "multiclass":
             allowed |= {"unassigned_policy", "void_index"}
     elif solver == "dep":
-        allowed = {"theta", "kernel_size"}
+        allowed = {"theta"}
         if output_mode == "multiclass":
             allowed |= {"unassigned_policy", "void_index"}
     elif solver in {"ba", "trna", "ba+trna"}:
@@ -124,8 +124,9 @@ def rankseg(
 
     solver : str, default='RMA'
         The optimization solver to use. Solver compatibility is validated
-        strictly: Dice multiclass and all IoU outputs require RMA; Dice
-        multilabel also supports BA, TRNA, and BA+TRNA; Accuracy requires TR
+        strictly: Dice multiclass supports RMA and DEP; all IoU outputs
+        require RMA; Dice multilabel supports RMA, BA, TRNA, BA+TRNA, and DEP;
+        DEP requires ``smooth=0``; Accuracy requires TR
         for single-channel input, argmax for multiclass output, and either TR
         or argmax for multi-channel multilabel output.
 
@@ -161,6 +162,10 @@ def rankseg(
         For BA, TRNA, and BA+TRNA, `eps` is the tail probability used to retain
         the central `1 - eps` refined-normal interval; it must be finite and
         lie strictly between 0 and 1.
+        For DEP, `theta` (default 300.0) is the pixel bandwidth of the Gaussian
+        dependence kernel, which covers the whole image. In multiclass output,
+        `unassigned_policy` and `void_index` behave as for RMA, with increments
+        computed from the DEP objective.
 
     Returns
     -------

@@ -41,6 +41,19 @@ The RMA solver for efficient segmentation:
 
 **Paper Link:** https://openreview.net/forum?id=4tRMm1JJhw
 
+**Extended Work (NeurIPS 2026)**
+
+The DEP solver, which relaxes the conditional independence assumption:
+
+.. code-block:: bibtex
+
+   @inproceedings{rankseg2026,
+      title={On the Relaxation of Conditional Independence Assumption for Image Segmentation},
+      author={Wang, Zixun and Dai, Ben},
+      booktitle={Advances in Neural Information Processing Systems},
+      year={2026}
+   }
+
 License
 -------
 

@@ -2,8 +2,7 @@
 # License: BSD 3 clause
 
 import warnings
-from collections.abc import Sequence
-from numbers import Integral, Real
+from numbers import Real
 from typing import Literal, Union
 
 import torch
@@ -800,41 +799,20 @@ def rankseg_rma(
     return preds if output_mode == "multilabel" else preds.long()
 
 
-def _dep_half_widths(kernel_size, image_shape):
-    """Return per-axis kernel half widths, clipped to the largest displacement."""
-    ndim = len(image_shape)
-    if kernel_size is None:
-        return tuple(n - 1 for n in image_shape)
-    if isinstance(kernel_size, Integral) and not isinstance(kernel_size, bool):
-        sizes = (int(kernel_size),) * ndim
-    elif isinstance(kernel_size, Sequence) and not isinstance(kernel_size, str):
-        sizes = tuple(validate_integral("kernel_size", size) for size in kernel_size)
-        if len(sizes) != ndim:
-            raise ValueError(f"kernel_size must have one entry per spatial dimension ({ndim})")
-    else:
-        raise TypeError("kernel_size must be None, an int, or a sequence of ints")
-    if any(size <= 0 or size % 2 == 0 for size in sizes):
-        raise ValueError("kernel_size entries must be positive odd integers")
-    # Displacements beyond n - 1 never occur inside the image, so a larger
-    # kernel is equivalent to the full kernel.
-    return tuple(min(size // 2, n - 1) for size, n in zip(sizes, image_shape))
+def _dep_gaussian_convolve(x: torch.Tensor, theta: float) -> torch.Tensor:
+    """Zero-padded linear convolution of x (rows, \\*image_shape) with a Gaussian kernel.
 
-
-def _dep_gaussian_convolve(x: torch.Tensor, theta: float, half_widths) -> torch.Tensor:
-    """Zero-padded linear convolution of x (rows, \\*image_shape) with a truncated Gaussian.
-
-    The kernel exp(-||delta||^2 / (2 theta^2)) is separable, so an N-D
-    convolution is a sequence of 1-D FFT convolutions, one per spatial axis.
-    Padding each axis to n + half suffices to avoid circular wrap-around.
+    The kernel exp(-||delta||^2 / (2 theta^2)) covers every displacement inside
+    the image and is separable, so an N-D convolution is a sequence of 1-D FFT
+    convolutions, one per spatial axis. Padding each axis of length n to
+    2n - 1 avoids circular wrap-around.
     """
-    for axis, half in enumerate(half_widths):
-        dim = axis + 1
+    for dim in range(1, x.ndim):
         n = x.shape[dim]
-        length = n + half
+        length = 2 * n - 1
         offsets = torch.arange(length, device=x.device)
-        signed = torch.where(offsets <= half, offsets, offsets - length).to(x.dtype)
+        signed = torch.where(offsets < n, offsets, offsets - length).to(x.dtype)
         weights = torch.exp(-signed.square() / (2 * theta**2))
-        weights.masked_fill_(signed.abs() > half, 0)
         view_shape = [1] * x.ndim
         view_shape[dim] = -1
         weights_fft = torch.fft.rfft(weights).view(view_shape)
@@ -843,7 +821,7 @@ def _dep_gaussian_convolve(x: torch.Tensor, theta: float, half_widths) -> torch.
     return x
 
 
-def _dep_volume_means(probs: torch.Tensor, theta: float, half_widths) -> torch.Tensor:
+def _dep_volume_means(probs: torch.Tensor, theta: float) -> torch.Tensor:
     r"""Estimate the per-pixel conditional volume mean under spatially localized dependence.
 
     For probability rows of shape (rows, \*image_shape), return
@@ -854,12 +832,12 @@ def _dep_volume_means(probs: torch.Tensor, theta: float, half_widths) -> torch.T
     dim = probs[0].numel() if rows else 0
     nu = torch.sqrt(probs * (1 - probs) + 1e-10)
     padded_numel = dim
-    for n, half in zip(image_shape, half_widths):
-        padded_numel = padded_numel // n * (n + half)
+    for n in image_shape:
+        padded_numel = padded_numel // n * (2 * n - 1)
     chunk = max(1, _DEP_FFT_CHUNK_NUMEL // max(padded_numel, 1))
     nu_conv = torch.empty_like(nu)
     for start in range(0, rows, chunk):
-        nu_conv[start:start + chunk] = _dep_gaussian_convolve(nu[start:start + chunk], theta, half_widths)
+        nu_conv[start:start + chunk] = _dep_gaussian_convolve(nu[start:start + chunk], theta)
     # Rounding in the FFT can produce tiny negative values for a
     # nonnegative convolution.
     nu_conv.clamp_(min=0)
@@ -941,7 +919,6 @@ def rankseg_dep(
     output_mode: str = "multiclass",
     pruning_prob: float = 0.5,
     theta: float = 300.0,
-    kernel_size=None,
     unassigned_policy: str = "max_score",
     void_index: int = 255,
 ) -> torch.Tensor:
@@ -980,11 +957,6 @@ def rankseg_dep(
     theta : float, default=300.0
         Bandwidth, in pixels, of the Gaussian dependence kernel
         ``exp(-||delta||^2 / (2 theta^2))``. Must be finite and positive.
-
-    kernel_size : None, int or sequence of int, default=None
-        Spatial support of the dependence kernel. None uses every displacement
-        within the image (no truncation). An int truncates every spatial axis
-        to that odd size; a sequence gives one odd size per spatial axis.
 
     unassigned_policy : {'max_score', 'void'}, default='max_score'
         Policy for pixels that are not selected by any class in multiclass
@@ -1069,7 +1041,6 @@ def rankseg_dep(
             raise ValueError("void_index must lie outside the valid class index range [0, num_class)")
 
     batch_size, num_classes, *image_shape = probs.shape
-    half_widths = _dep_half_widths(kernel_size, image_shape)
 
     def convert_to_nonoverlap(
         overlap_preds: torch.Tensor,
@@ -1127,7 +1098,7 @@ def rankseg_dep(
         mu_mask |= ~active_mask.any(dim=1, keepdim=True)
     mu_rows = mu_mask.flatten().nonzero().squeeze(1)
     row_probs = probs.reshape(batch_size * num_classes, *image_shape)[mu_rows]
-    row_mu = _dep_volume_means(row_probs, theta, half_widths)
+    row_mu = _dep_volume_means(row_probs, theta)
     del row_probs
 
     overlap_preds = torch.zeros(batch_size * num_classes, dim, dtype=torch.bool, device=flat_probs.device)
