@@ -96,7 +96,8 @@ class RankSEG(object):
         not match the default full-sort path bit for bit.
         For 'DEP', ``theta`` (default 300.0) is the bandwidth, in pixels, of
         the Gaussian dependence kernel, which covers the whole image; it must
-        be finite and positive.
+        be finite and non-negative. ``theta=0`` gives the limiting delta
+        kernel, which removes the dependence between distinct pixels.
         unassigned_policy and void_index behave as for 'RMA'.
         Unsupported parameters raise an error rather than being ignored.
 

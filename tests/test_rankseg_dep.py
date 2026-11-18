@@ -8,7 +8,7 @@ import torch
 import torch.nn.functional as F
 
 import rankseg._rankseg_algo as algo_module
-from rankseg import RankSEG, rankseg_dep
+from rankseg import RankSEG, rankseg_dep, rankseg_rma
 from rankseg._rankseg_algo import _dep_fixed_point_masks, _dep_volume_means
 from rankseg.functional import rankseg
 
@@ -76,6 +76,14 @@ def test_volume_means_chunking_matches_unchunked(monkeypatch):
     torch.testing.assert_close(_dep_volume_means(probs, 4.0), expected, rtol=0, atol=0)
 
 
+def test_volume_means_with_zero_theta_uses_identity_kernel():
+    probs = _smooth_probs(1, 3, (7, 9), dtype=torch.float64)[0]
+    flat = probs.flatten(1)
+    nu = torch.sqrt(flat * (1 - flat) + 1e-10)
+    expected = flat.sum(-1, keepdim=True) + nu.square() / (flat + 1e-8)
+    torch.testing.assert_close(_dep_volume_means(probs, 0.0), expected, rtol=0, atol=0)
+
+
 @pytest.mark.parametrize("dtype", [torch.float32, torch.float64])
 def test_fixed_point_masks_match_row_by_row_reference(dtype):
     probs = _smooth_probs(2, 4, (24, 20), seed=3).flatten(2).reshape(8, -1).to(dtype)
@@ -89,19 +97,74 @@ def test_fixed_point_masks_match_row_by_row_reference(dtype):
 
 def _objective(probs, mu, mask):
     t = mask.sum()
-    return (2 * probs[mask] / (t + mu[mask] + 1)).sum()
+    return (2 * probs[mask] / (t + mu[mask])).sum()
 
 
-@pytest.mark.parametrize("seed", range(4))
-@pytest.mark.parametrize("policy", ["max_score", "void"])
-def test_multiclass_assignment_matches_objective_increment_oracle(seed, policy):
-    probs = _smooth_probs(1, 3, (10, 12), seed=seed, scale=1.2, dtype=torch.float64)
+def _block_probs(third_probability, size=1 << 20, device="cpu", dtype=torch.float32):
+    """Three equal-sized blocks per class, arranged along the flattened image."""
+    foreground = torch.tensor([7 / 8, 1 / 8, third_probability], device=device, dtype=dtype).repeat_interleave(size)
+    return torch.stack((foreground, 1 - foreground)).reshape(1, 2, 192, 128, 128)
+
+
+@pytest.mark.parametrize("device", DEVICES)
+def test_large_volume_multiclass_increment_does_not_collapse_to_class_zero(device):
+    # Constructed numerical regression, not a real probability map. Class 0
+    # selects blocks 0 and 2, class 1 selects blocks 1 and 2, and the exact
+    # increments differ by only about 4e-8 while both are about 1e-7. In
+    # float32, subtracting the two almost equal overall objectives rounds the
+    # increments together (or reverses them) and assigns the whole 2**20-pixel
+    # overlap block to class 0. The factored increment keeps the ordering.
+    size = 1 << 20
+    probs = torch.zeros(1, 2, 192, 128, 128, device=device)
+    flat_probs = probs.flatten(2)
+    flat_probs[:, 0, :size] = 9 / 16
+    flat_probs[:, 0, 2 * size :] = 13 / 32
+    flat_probs[:, 1, size : 2 * size] = 63 / 64
+    flat_probs[:, 1, 2 * size :] = 19 / 32
+
+    # Float64 reference for the DEP theta=0 increment at an overlap pixel.
+    flat = flat_probs[0].double()
+    q = flat.sum(-1, keepdim=True)
+    mu = q + (flat * (1 - flat) + 1e-10) / (flat + 1e-8)
+    safe = torch.zeros_like(flat, dtype=torch.bool)
+    safe[0, :size] = True
+    safe[1, size : 2 * size] = True
+    denom = size + mu
+    increments = 2 * flat[:, 2 * size] / (denom[:, 2 * size] + 1)
+    increments -= (2 * flat / (denom * (denom + 1)) * safe).sum(dim=1)
+    assert increments[1] > increments[0] > 0
+
+    masks = rankseg_dep(probs, theta=0.0, output_mode="multilabel")[0].flatten(1)
+    overlap = masks[0] & masks[1]
+    assert not overlap[: 2 * size].any()
+    # Both classes select essentially all of the third block. The fixed-point
+    # search can lose a few boundary pixels in float32.
+    assert overlap[2 * size :].sum() > size * 0.99
+
+    actual = rankseg_dep(probs, theta=0.0).flatten()
+    assert (actual[:size] == 0).all()
+    assert (actual[size : 2 * size] == 1).all()
+    assert (actual[overlap] == 1).all()
+
+
+def test_theta_zero_matches_rma_on_controlled_large_input():
+    # theta=0 is the delta-kernel limit: distinct pixels are independent.
+    # This controlled construction reproduces the RMA assignment exactly.
+    probs = _block_probs(13 / 32)
+    assert torch.equal(rankseg_dep(probs, theta=0.0), rankseg_rma(probs))
+    assert torch.equal(
+        rankseg_dep(probs, theta=0.0, output_mode="multilabel"),
+        rankseg_rma(probs, output_mode="multilabel"),
+    )
+
+
+def _assert_multiclass_assignment_matches_objective(probs, theta, policy):
     kwargs = {"unassigned_policy": policy, "void_index": -1} if policy == "void" else {}
-    actual = rankseg_dep(probs, theta=5.0, **kwargs).flatten()
-    masks = rankseg_dep(probs, theta=5.0, output_mode="multilabel")[0].flatten(1)
+    actual = rankseg_dep(probs, theta=theta, **kwargs).flatten()
+    masks = rankseg_dep(probs, theta=theta, output_mode="multilabel")[0].flatten(1)
     flat = probs[0].flatten(1)
     active = flat.amax(-1) > 0.5
-    mu = _dep_volume_means(probs[0], 5.0)
+    mu = _dep_volume_means(probs[0], theta)
     counts = masks.sum(0)
     fixed = masks & (counts == 1)
     for j in range(flat.shape[1]):
@@ -118,6 +181,21 @@ def test_multiclass_assignment_matches_objective_increment_oracle(seed, policy):
             after[j] = True
             increments.append(float(_objective(flat[c], mu[c], after) - _objective(flat[c], mu[c], fixed[c])))
         assert actual[j] == max(range(len(increments)), key=increments.__getitem__)
+
+
+@pytest.mark.parametrize("seed", range(4))
+@pytest.mark.parametrize("policy", ["max_score", "void"])
+def test_multiclass_assignment_matches_objective_increment_oracle(seed, policy):
+    probs = _smooth_probs(1, 3, (10, 12), seed=seed, scale=1.2, dtype=torch.float64)
+    _assert_multiclass_assignment_matches_objective(probs, 5.0, policy)
+
+
+@pytest.mark.parametrize("policy", ["max_score", "void"])
+def test_multiclass_increment_uses_the_appendix_denominator(policy):
+    # One pixel flips when the increment denominator carries the former extra
+    # +1, so this pins the Appendix F formula d_j = t + mu_j.
+    probs = _smooth_probs(1, 3, (8, 8), seed=2, scale=1.2, dtype=torch.float64)
+    _assert_multiclass_assignment_matches_objective(probs, 1.0, policy)
 
 
 @pytest.mark.parametrize("device", DEVICES)
@@ -147,6 +225,13 @@ def test_class_and_functional_interfaces_agree():
     expected = rankseg_dep(probs, theta=50.0)
     assert torch.equal(RankSEG(solver="dep", theta=50.0)(probs), expected)
     assert torch.equal(rankseg(probs, solver=" DEP ", theta=50.0), expected)
+
+
+def test_zero_theta_is_accepted_by_all_interfaces():
+    probs = _smooth_probs(1, 3, (16, 16))
+    expected = rankseg_dep(probs, theta=0.0)
+    assert torch.equal(RankSEG(solver="DEP", theta=0.0)(probs), expected)
+    assert torch.equal(rankseg(probs, solver="DEP", theta=0.0), expected)
 
 
 @pytest.mark.parametrize("dtype", [torch.float16, torch.bfloat16])
@@ -194,8 +279,7 @@ def test_dep_rejects_non_dice_metrics(metric):
     "kwargs, error, match",
     [
         ({"smooth": 1.0}, ValueError, "smooth=0"),
-        ({"theta": 0.0}, ValueError, "theta must be positive"),
-        ({"theta": -1.0}, ValueError, "theta must be positive"),
+        ({"theta": -1.0}, ValueError, "greater than or equal to 0"),
         ({"theta": float("nan")}, ValueError, "theta must be finite"),
         ({"theta": "300"}, TypeError, "theta must be a real number"),
         ({"kernel_size": 3}, TypeError, "does not accept solver parameters: kernel_size"),

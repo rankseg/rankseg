@@ -827,20 +827,25 @@ def _dep_volume_means(probs: torch.Tensor, theta: float) -> torch.Tensor:
     For probability rows of shape (rows, \*image_shape), return
     ``q + (nu / p) * (nu * kappa)`` flattened to (rows, dim), where
     ``q = sum(p)``, ``nu = sqrt(p (1 - p))`` and ``kappa`` is the Gaussian kernel.
+    ``theta=0`` uses the limiting delta kernel, so no convolution is needed.
     """
     rows, *image_shape = probs.shape
     dim = probs[0].numel() if rows else 0
     nu = torch.sqrt(probs * (1 - probs) + 1e-10)
-    padded_numel = dim
-    for n in image_shape:
-        padded_numel = padded_numel // n * (2 * n - 1)
-    chunk = max(1, _DEP_FFT_CHUNK_NUMEL // max(padded_numel, 1))
-    nu_conv = torch.empty_like(nu)
-    for start in range(0, rows, chunk):
-        nu_conv[start:start + chunk] = _dep_gaussian_convolve(nu[start:start + chunk], theta)
-    # Rounding in the FFT can produce tiny negative values for a
-    # nonnegative convolution.
-    nu_conv.clamp_(min=0)
+    if theta == 0:
+        # Limiting delta kernel: no dependence between distinct pixels.
+        nu_conv = nu
+    else:
+        padded_numel = dim
+        for n in image_shape:
+            padded_numel = padded_numel // n * (2 * n - 1)
+        chunk = max(1, _DEP_FFT_CHUNK_NUMEL // max(padded_numel, 1))
+        nu_conv = torch.empty_like(nu)
+        for start in range(0, rows, chunk):
+            nu_conv[start:start + chunk] = _dep_gaussian_convolve(nu[start:start + chunk], theta)
+        # Rounding in the FFT can produce tiny negative values for a
+        # nonnegative convolution.
+        nu_conv.clamp_(min=0)
     probs = probs.flatten(1)
     q = probs.sum(dim=-1, keepdim=True)
     return q + (nu.flatten(1) / (probs + 1e-8)) * nu_conv.flatten(1)
@@ -912,6 +917,7 @@ def _dep_fixed_point_masks(
     return masks, pending.numel()
 
 
+@torch.no_grad()
 def rankseg_dep(
     probs: torch.Tensor,
     metric: str = "dice",
@@ -956,7 +962,9 @@ def rankseg_dep(
 
     theta : float, default=300.0
         Bandwidth, in pixels, of the Gaussian dependence kernel
-        ``exp(-||delta||^2 / (2 theta^2))``. Must be finite and positive.
+        ``exp(-||delta||^2 / (2 theta^2))``. Must be finite and
+        non-negative. ``theta=0`` gives the limiting delta kernel, which
+        removes the dependence between distinct pixels.
 
     unassigned_policy : {'max_score', 'void'}, default='max_score'
         Policy for pixels that are not selected by any class in multiclass
@@ -1007,8 +1015,8 @@ def rankseg_dep(
     if not 0 <= pruning_prob <= 1:
         raise ValueError("pruning_prob must be in the range [0, 1]")
     theta = validate_finite_real("theta", theta)
-    if theta <= 0:
-        raise ValueError("theta must be positive")
+    if theta < 0:
+        raise ValueError("theta must be greater than or equal to 0")
     if probs.dtype in (torch.float16, torch.bfloat16):
         probs = probs.float()
 
@@ -1054,17 +1062,19 @@ def rankseg_dep(
         has_selected_mask = class_counts > 0
         safe_to_predict = overlap_preds & (class_counts == 1).unsqueeze(1)
 
-        # With t pixels fixed for a class and d_j = t + mu_j + 1, the objective
+        # With t pixels fixed for a class and d_j = t + mu_j, the objective
         # sum_{i in P} 2 p_i / d_i changes by
         #   2 p_j / (d_j + 1) - sum_{i in P} 2 p_i / (d_i (d_i + 1))
         # when pixel j is added. Factoring the difference avoids subtracting
-        # two almost equal overall objectives.
+        # two almost equal overall objectives. A zero denominator means the
+        # class has no probability mass anywhere, so every increment is 0.
         opt_tau = safe_to_predict.sum(dim=2, keepdim=True).to(probs.dtype)
-        denom = opt_tau + mu + 1
-        next_denom = denom + 1
-        penalty = (2 * probs / (denom * next_denom) * safe_to_predict).sum(dim=2, keepdim=True)
+        denom = opt_tau + mu
+        safe_denom = torch.where(denom == 0, torch.ones_like(denom), denom)
+        next_denom = safe_denom + 1
+        penalty = (2 * probs / (safe_denom * next_denom) * safe_to_predict).sum(dim=2, keepdim=True)
         raw_increment_scores = (2 * probs / next_denom).sub_(penalty)
-        del denom, next_denom, penalty
+        del denom, safe_denom, next_denom, penalty
 
         if unassigned_policy == "max_score":
             all_classes_pruned = ~active_mask.any(dim=1, keepdim=True)

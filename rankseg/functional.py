@@ -163,7 +163,9 @@ def rankseg(
         the central `1 - eps` refined-normal interval; it must be finite and
         lie strictly between 0 and 1.
         For DEP, `theta` (default 300.0) is the pixel bandwidth of the Gaussian
-        dependence kernel, which covers the whole image. In multiclass output,
+        dependence kernel, which covers the whole image. It must be finite and
+        non-negative; ``theta=0`` gives the limiting delta kernel, which removes
+        the dependence between distinct pixels. In multiclass output,
         `unassigned_policy` and `void_index` behave as for RMA, with increments
         computed from the DEP objective.
 

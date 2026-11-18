@@ -3,7 +3,7 @@ import torch
 import torch.nn.functional as F
 
 import rankseg._rankseg_algo as rankseg_algo
-from rankseg._rankseg_algo import rankdice_ba, rankseg_rma
+from rankseg._rankseg_algo import rankdice_ba, rankseg_dep, rankseg_rma
 from rankseg.distribution import RefinedNormalPB
 
 
@@ -691,6 +691,7 @@ def test_exported_rankseg_algorithms_disable_autograd(monkeypatch):
     probs = torch.tensor([[[0.8, 0.2, 0.6, 0.4]]], dtype=torch.float32, device=device, requires_grad=True)
     expected_ba = rankdice_ba(probs.detach(), solver="BA", pruning_prob=0.0)
     expected_rma = rankseg_rma(probs.detach(), output_mode="multilabel", pruning_prob=0.0)
+    expected_dep = rankseg_dep(probs.detach(), output_mode="multilabel", pruning_prob=0.0, theta=1.0)
 
     grad_states = []
     original_validate = rankseg_algo.validate_probability_tensor
@@ -703,12 +704,15 @@ def test_exported_rankseg_algorithms_disable_autograd(monkeypatch):
     with torch.enable_grad():
         actual_ba = rankdice_ba(probs, solver="BA", pruning_prob=0.0)
         actual_rma = rankseg_rma(probs, output_mode="multilabel", pruning_prob=0.0)
+        actual_dep = rankseg_dep(probs, output_mode="multilabel", pruning_prob=0.0, theta=1.0)
 
-    assert grad_states == [False, False]
+    assert grad_states == [False, False, False]
     assert not actual_ba.requires_grad
     assert not actual_rma.requires_grad
+    assert not actual_dep.requires_grad
     assert torch.equal(actual_ba, expected_ba)
     assert torch.equal(actual_rma, expected_rma)
+    assert torch.equal(actual_dep, expected_dep)
 
 
 def test_exported_rankdice_ba_rejects_degenerate_eps():
