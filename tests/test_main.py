@@ -51,6 +51,8 @@ def _mean_dice(preds: torch.Tensor, targets: torch.Tensor, num_classes: int) -> 
         ("dice", "multilabel", "BA"),
         ("dice", "multilabel", "TRNA"),
         ("dice", "multilabel", "BA+TRNA"),
+        ("dice", "multiclass", "DEP"),
+        ("dice", "multilabel", "DEP"),
         ("iou", "multiclass", "RMA"),
         ("iou", "multilabel", "RMA"),
         ("accuracy", "multiclass", "argmax"),
@@ -77,6 +79,8 @@ def test_rankseg_supported_solver_matrix(metric, output_mode, solver, demo_data)
         ("dice", "multilabel", "BA"),
         ("dice", "multilabel", "TRNA"),
         ("dice", "multilabel", "BA+TRNA"),
+        ("dice", "multiclass", "DEP"),
+        ("dice", "multilabel", "DEP"),
         ("iou", "multiclass", "RMA"),
         ("iou", "multilabel", "RMA"),
         ("accuracy", "multiclass", "argmax"),
@@ -115,6 +119,8 @@ def test_rankseg_output_contract_matches_on_cuda():
         ("dice", "multilabel", "BA"),
         ("dice", "multilabel", "TRNA"),
         ("dice", "multilabel", "BA+TRNA"),
+        ("dice", "multiclass", "DEP"),
+        ("dice", "multilabel", "DEP"),
         ("iou", "multiclass", "RMA"),
         ("iou", "multilabel", "RMA"),
         ("accuracy", "multiclass", "argmax"),
@@ -460,7 +466,7 @@ def test_rankseg_dice_rejects_unknown_solver(demo_data):
     probs, _ = demo_data
     rankseg = RankSEG(metric="dice", solver="invalid", output_mode="multilabel")
 
-    with pytest.raises(ValueError, match=r"supported solvers: RMA, BA, TRNA, BA\+TRNA"):
+    with pytest.raises(ValueError, match=r"supported solvers: RMA, BA, TRNA, BA\+TRNA, DEP"):
         rankseg.predict(probs)
 
     assert rankseg.solver == "invalid"

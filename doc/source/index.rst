@@ -75,7 +75,7 @@ Key Properties
     * - **🔌 Plug-and-Play**
       - Works with pre-trained probabilistic segmentation models without retraining
     * - **⚡ Efficient Solvers**
-      - Multiple solver options (BA, TRNA, RMA) for different speed-accuracy trade-offs
+      - Multiple solver options (BA, TRNA, RMA, DEP) for different speed-accuracy trade-offs
     * - **🧩 Flexible Tasks**
       - Supports both multi-class and multi-label segmentation tasks, whether objects overlap or not.
 

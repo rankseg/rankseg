@@ -69,6 +69,10 @@ RMA Dice 可通过 `safe_screening="auto"` 显式启用节省显存的自动 scr
 默认仍为 `False`，保留原计算路径；启用后数值近似并列时 mask 可能发生变化。
 [详细说明](https://rankseg.readthedocs.io/en/latest/API.html#experimental-rma-safe-screening)。
 
+对于 Dice，`solver="DEP"` 通过建模邻近像素间的标签依赖放松条件独立假设（NeurIPS 2026），
+在 2D 图像的低对比度区域和小目标上提升最明显，运行开销高于 RMA：
+`RankSEG(metric="dice", solver="DEP", theta=300.0)`。
+
 **在线体验：** [Colab](https://colab.research.google.com/drive/1c2znXP7_yt_9MrE75p-Ag82LHz-WfKq-?usp=sharing) · [交互演示](https://huggingface.co/spaces/statmlben/rankseg)
 
 ## 📊 基准测试
@@ -106,6 +110,7 @@ RankSEG-RMA。分数以百分比表示，增益以百分点（pp）表示。
 
 > - Dai, B., & Li, C. (2023). RankSEG: A Consistent Ranking-based Framework for Segmentation. *Journal of Machine Learning Research*, **24**(224), 1-50. [[link]](https://www.jmlr.org/papers/v24/22-0712.html)
 > - Wang, Z., & Dai, B. (2025). RankSEG-RMA: An Efficient Segmentation Algorithm via Reciprocal Moment Approximation. *Advances in Neural Information Processing Systems (NeurIPS 2025)*. [[link]](https://openreview.net/pdf?id=4tRMm1JJhw)
+> - Wang, Z., & Dai, B. (2026). On the Relaxation of Conditional Independence Assumption for Image Segmentation. *Advances in Neural Information Processing Systems (NeurIPS 2026)*.
 
 
 ```bibtex
@@ -126,6 +131,13 @@ RankSEG-RMA。分数以百分比表示，增益以百分点（pp）表示。
   booktitle={Advances in Neural Information Processing Systems},
   url={https://arxiv.org/abs/2510.15362},
   year={2025}
+}
+
+@inproceedings{wang2026rankseg,
+  title={On the Relaxation of Conditional Independence Assumption for Image Segmentation},
+  author={Wang, Zixun and Dai, Ben},
+  booktitle={Advances in Neural Information Processing Systems},
+  year={2026}
 }
 ```
 

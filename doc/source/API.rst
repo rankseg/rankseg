@@ -35,6 +35,7 @@ Algorithms
 
    rankseg.rankdice_ba
    rankseg.rankseg_rma
+   rankseg.rankseg_dep
 
 
 Stable multiclass increments

@@ -70,6 +70,11 @@ RMA Dice offers optional memory-saving screening with `safe_screening="auto"`.
 The default remains `False`, preserving the original computation path. Opting in
 may change masks near numerical ties. [Details](https://rankseg.readthedocs.io/en/latest/API.html#experimental-rma-safe-screening).
 
+For Dice, `solver="DEP"` relaxes the conditional independence assumption by
+modeling label dependence between nearby pixels (NeurIPS 2026). It helps most on
+low-contrast regions and small objects in 2D images, at a higher runtime cost than
+RMA: `RankSEG(metric="dice", solver="DEP", theta=300.0)`.
+
 **Try it online:** [Colab](https://colab.research.google.com/drive/1c2znXP7_yt_9MrE75p-Ag82LHz-WfKq-?usp=sharing) · [Interactive demo](https://huggingface.co/spaces/statmlben/rankseg)
 
 ## 📊 Benchmarks
@@ -108,6 +113,7 @@ If you use RankSEG in your research, please cite our papers:
 
 > - Dai, B., & Li, C. (2023). RankSEG: A Consistent Ranking-based Framework for Segmentation. *Journal of Machine Learning Research*, **24**(224), 1-50. [[link]](https://www.jmlr.org/papers/v24/22-0712.html)
 > - Wang, Z., & Dai, B. (2025). RankSEG-RMA: An Efficient Segmentation Algorithm via Reciprocal Moment Approximation. *Advances in Neural Information Processing Systems (NeurIPS 2025)*. [[link]](https://openreview.net/pdf?id=4tRMm1JJhw)
+> - Wang, Z., & Dai, B. (2026). On the Relaxation of Conditional Independence Assumption for Image Segmentation. *Advances in Neural Information Processing Systems (NeurIPS 2026)*.
 
 
 ```bibtex
@@ -128,6 +134,13 @@ If you use RankSEG in your research, please cite our papers:
   booktitle={Advances in Neural Information Processing Systems},
   url={https://arxiv.org/abs/2510.15362},
   year={2025}
+}
+
+@inproceedings{wang2026rankseg,
+  title={On the Relaxation of Conditional Independence Assumption for Image Segmentation},
+  author={Wang, Zixun and Dai, Ben},
+  booktitle={Advances in Neural Information Processing Systems},
+  year={2026}
 }
 ```
 
