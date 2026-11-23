@@ -69,9 +69,16 @@ RMA Dice 可通过 `safe_screening="auto"` 显式启用节省显存的自动 scr
 默认仍为 `False`，保留原计算路径；启用后数值近似并列时 mask 可能发生变化。
 [详细说明](https://rankseg.readthedocs.io/en/latest/API.html#experimental-rma-safe-screening)。
 
-对于 Dice，`solver="DEP"` 通过建模邻近像素间的标签依赖放松条件独立假设（NeurIPS 2026），
-在 2D 图像的低对比度区域和小目标上提升最明显，运行开销高于 RMA：
-`RankSEG(metric="dice", solver="DEP", theta=300.0)`。
+**0.0.9 新增 DEP：建模空间依赖。** 对于 Dice，`solver="DEP"` 建模邻近像素间的
+标签依赖（NeurIPS 2026）。可在存在模糊区域的 2D 图像上，用同一份概率图进行比较：
+
+```python
+preds_dep = RankSEG(metric="dice", solver="DEP", theta=300.0)(probs)
+```
+
+DEP 支持 CPU/CUDA 及两种输出模式，要求 `smooth=0`，不接受 `safe_screening`。
+`theta` 是以像素为单位的空间带宽；`theta=0` 去掉不同像素之间的依赖，但不保证
+与 RMA 输出一致。默认求解器仍为 RMA。[DEP 用法与参数](https://rankseg.readthedocs.io/en/latest/API.html#dep-spatial-dependence)。
 
 **在线体验：** [Colab](https://colab.research.google.com/drive/1c2znXP7_yt_9MrE75p-Ag82LHz-WfKq-?usp=sharing) · [交互演示](https://huggingface.co/spaces/statmlben/rankseg)
 

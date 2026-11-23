@@ -76,7 +76,54 @@ def golden_case(torch, device):
     return probs, binary, labels
 
 
+def dep_golden_case(torch, device, theta):
+    # A normalized three-class 2D map with an unassigned pixel at [1, 0].
+    # Appendix F assigns that pixel to class 2; the former extra +1 in the
+    # denominator assigned class 1. At theta=0 the masks also overlap at
+    # [1, 1], while the default theta selects that pixel only for class 2.
+    probs = torch.tensor([
+        [[[972, 30, 54], [343, 57, 77]],
+         [[20, 251, 92], [323, 347, 917]],
+         [[8, 719, 854], [334, 596, 6]]],
+    ], dtype=torch.float32, device=device) / 1000
+    binary = torch.tensor([
+        [[[True, False, False], [False, False, False]],
+         [[False, False, False], [False, theta == 0, True]],
+         [[False, True, True], [False, True, False]]],
+    ], dtype=torch.bool, device=device)
+    labels = torch.tensor([[[0, 2, 2], [2, 2, 1]]], device=device)
+    return probs, binary, labels
+
+
+def check_dep_predictions(module, torch, device):
+    assert inspect.signature(module.rankseg_dep).parameters["theta"].default == 300.0
+    checked = 0
+    for theta in (None, 0.0):
+        # None exercises the default bandwidth without passing an option.
+        params = {} if theta is None else {"theta": theta}
+        probs, binary, labels = dep_golden_case(torch, device, theta)
+        original = probs.clone()
+        probs.requires_grad_()
+        for mode, expected in (("multilabel", binary), ("multiclass", labels)):
+            kwargs = dict(metric="dice", output_mode=mode, **params)
+            decoder = module.RankSEG(solver="DEP", **kwargs)
+            predictions = (
+                decoder(probs),
+                decoder.predict(probs),
+                module.functional.rankseg(probs, solver="DEP", **kwargs),
+                module.rankseg_dep(probs, **kwargs),
+            )
+            for result in predictions:
+                assert result.shape == expected.shape and result.dtype == expected.dtype
+                assert result.device == probs.device and not result.requires_grad
+                assert torch.equal(result, expected), f"Wrong DEP {mode} output with theta={theta}"
+                checked += 1
+        assert torch.equal(probs, original), "DEP modified its input probabilities"
+    return checked
+
+
 def check_predictions(module, torch, device):
+    assert inspect.signature(module.RankSEG).parameters["solver"].default == "RMA"
     assert inspect.signature(module.rankseg_rma).parameters["safe_screening"].default is False
     probs, binary, labels = golden_case(torch, device)
     original = probs.clone()
@@ -101,7 +148,7 @@ def check_predictions(module, torch, device):
     # Retain the original Accuracy smoke test too.
     assert torch.equal(module.RankSEG(metric="accuracy", solver="argmax")(probs), labels)
     assert torch.equal(probs, original), "Decoder modified its input probabilities"
-    return checked + 1
+    return checked + 1 + check_dep_predictions(module, torch, device)
 
 
 def smoke_test(artifact, source_root, device="cpu", require_no_triton=False):

@@ -70,10 +70,18 @@ RMA Dice offers optional memory-saving screening with `safe_screening="auto"`.
 The default remains `False`, preserving the original computation path. Opting in
 may change masks near numerical ties. [Details](https://rankseg.readthedocs.io/en/latest/API.html#experimental-rma-safe-screening).
 
-For Dice, `solver="DEP"` relaxes the conditional independence assumption by
-modeling label dependence between nearby pixels (NeurIPS 2026). It helps most on
-low-contrast regions and small objects in 2D images, at a higher runtime cost than
-RMA: `RankSEG(metric="dice", solver="DEP", theta=300.0)`.
+**New in 0.0.9: spatial dependence with DEP.** For Dice, `solver="DEP"` models
+label dependence between nearby pixels (NeurIPS 2026). Try it on 2D images with
+ambiguous regions, using the same probabilities:
+
+```python
+preds_dep = RankSEG(metric="dice", solver="DEP", theta=300.0)(probs)
+```
+
+DEP supports CPU/CUDA and both output modes. It requires `smooth=0` and does not
+accept `safe_screening`. `theta` is the spatial bandwidth in pixels; `theta=0`
+removes dependence between distinct pixels but does not guarantee the same
+predictions as RMA. RMA remains the default. [DEP usage and parameters](https://rankseg.readthedocs.io/en/latest/API.html#dep-spatial-dependence).
 
 **Try it online:** [Colab](https://colab.research.google.com/drive/1c2znXP7_yt_9MrE75p-Ag82LHz-WfKq-?usp=sharing) · [Interactive demo](https://huggingface.co/spaces/statmlben/rankseg)
 

@@ -130,7 +130,22 @@ def test_golden_masks_match_independent_float64_formula(scale):
 
 
 def test_installed_prediction_checks_on_cpu():
-    assert smoke.check_predictions(rankseg, torch, "cpu") == 33
+    assert smoke.check_predictions(rankseg, torch, "cpu") == 49
+
+
+@pytest.mark.parametrize("mode", ["multiclass", "multilabel"])
+def test_dep_smoke_rejects_incorrect_predictions(monkeypatch, mode):
+    original = rankseg.rankseg_dep
+
+    def incorrect(probs, **kwargs):
+        result = original(probs, **kwargs)
+        return torch.zeros_like(result) if kwargs["output_mode"] == mode else result
+
+    # Preserve signature introspection while substituting a faulty direct call.
+    incorrect.__wrapped__ = original
+    monkeypatch.setattr(rankseg, "rankseg_dep", incorrect)
+    with pytest.raises(AssertionError, match=f"Wrong DEP {mode} output"):
+        smoke.check_dep_predictions(rankseg, torch, "cpu")
 
 
 def test_cpu_screening_never_loads_cuda_backend(monkeypatch):
@@ -140,7 +155,7 @@ def test_cpu_screening_never_loads_cuda_backend(monkeypatch):
         raise AssertionError("CPU predictions must not load the CUDA/Triton backend")
 
     monkeypatch.setattr(_screening, "_cuda_backend", forbidden)
-    assert smoke.check_predictions(rankseg, torch, "cpu") == 33
+    assert smoke.check_predictions(rankseg, torch, "cpu") == 49
 
 
 def test_smoke_rejects_triton_in_no_triton_mode(tmp_path, monkeypatch):

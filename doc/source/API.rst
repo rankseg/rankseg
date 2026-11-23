@@ -38,6 +38,65 @@ Algorithms
    rankseg.rankseg_dep
 
 
+.. _dep-spatial-dependence:
+
+DEP spatial dependence
+----------------------
+
+.. versionadded:: 0.0.9
+
+``solver="DEP"`` models spatially localized label dependence when optimizing
+Dice :cite:p:`wang2026rankseg`. It uses the same model probabilities as RMA;
+no retraining is required. RMA remains the default solver.
+
+.. code-block:: python
+
+   from rankseg import RankSEG
+   from rankseg.functional import rankseg
+
+   # Multiclass logits: [B, C, H, W], with C >= 2.
+   probs = logits.float().softmax(dim=1)
+   decoder = RankSEG(metric="dice", solver="DEP", theta=300.0)
+   labels = decoder(probs)  # [B, H, W], int64, no overlapping classes
+
+   # The functional interface accepts the same options.
+   labels = rankseg(probs, solver="DEP", theta=300.0)
+
+   # Independent masks retain overlaps between classes.
+   masks = rankseg(probs, solver="DEP", output_mode="multilabel")
+   # masks: [B, C, H, W], bool
+
+If the model already returns probabilities, pass them directly without another
+softmax. For a single foreground channel, apply sigmoid to logits and use
+``output_mode="multilabel"``. Predictions stay on the input device; DEP supports
+CPU and CUDA without requiring the optional Triton extra.
+
+* Only ``metric="dice"`` and ``smooth=0`` are supported.
+* ``theta`` defaults to ``300.0`` and is the Gaussian bandwidth in pixels on
+  the input probability grid. Larger values make dependence decay more slowly
+  with distance. It must be finite and non-negative. ``theta=0`` uses the delta
+  kernel, removing dependence between distinct pixels; it is not an alias for
+  the RMA solver and need not produce the same masks.
+* ``pruning_prob`` defaults to ``0.5``. Classes whose maximum probability does
+  not exceed it are skipped when constructing the binary masks.
+* ``multiclass`` assigns one label per pixel; ``multilabel`` retains independent
+  boolean masks. In multiclass mode, ``unassigned_policy`` and ``void_index``
+  follow the same eligibility and abstention rules as RMA, using DEP increments.
+* ``safe_screening`` is an RMA option and must be omitted for DEP.
+
+DEP computes conditional volume means once, then iterates ranking and volume
+search for each active class. It stops when consecutive best objective values
+differ by less than ``1e-6``, with at most 10 iterations. If it does not converge,
+it warns and returns the last iterate. The model is not run again during this
+search. These iteration settings are internal constants, not public options.
+
+Start with 2D images and compare with RMA on representative validation data.
+DEP also accepts 3D tensors, but its bandwidth is measured in voxels and does
+not account for physical voxel spacing. Improved 3D accuracy is not established;
+keep RMA as the initial choice for that setting. DEP adds convolution and
+iterative search, so measure latency on the intended input sizes.
+
+
 Stable multiclass increments
 ----------------------------
 

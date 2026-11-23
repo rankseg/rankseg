@@ -444,6 +444,12 @@ Solver compatibility is checked strictly. RankSEG raises an error for an
 unsupported metric, output mode, and solver combination instead of silently
 substituting another solver.
 
+DEP requires ``metric="dice"`` and ``smooth=0``; omit ``safe_screening``.
+Its ``theta`` bandwidth is measured in pixels on the input probability grid.
+``theta=0`` removes dependence between distinct pixels but does not guarantee
+RMA-equivalent predictions. See :ref:`dep-spatial-dependence` for examples,
+output modes, and guidance for 2D versus 3D inputs.
+
 ``smooth`` and ``pruning_prob`` affect the Dice and IoU solvers only. Accuracy
 uses ``argmax`` or a fixed ``0.5`` threshold, so valid values supplied for
 ``smooth`` and ``pruning_prob`` through the shared API do not affect Accuracy
